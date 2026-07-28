@@ -4,8 +4,8 @@ Pull request lifecycle for **self-hosted Bitbucket Data Center**, from the termi
 
 Bitbucket Cloud and Bitbucket Data Center are different products with incompatible
 APIs — Cloud is REST 2.0 at `api.bitbucket.org`, Data Center is REST 1.0 at
-`<your-host>/rest/api/1.0`. Every maintained Bitbucket CLI targets Cloud, which is
-why this exists.
+`<your-host>/rest/api/1.0`. Every maintained Bitbucket CLI targets Cloud, which
+is why this exists.
 
 ## Install
 
@@ -86,5 +86,5 @@ lands in the Jira development panel.
 ## Not implemented
 
 Inline review comments. Reading them means recursing `/activities`, and writing
-them means constructing a nested `anchor` — worth doing, but only once the rest of
-the workflow has proven itself.
+them means constructing a nested `anchor` — worth doing, but only once the rest
+of the workflow has proven itself.
