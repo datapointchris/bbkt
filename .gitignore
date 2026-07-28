@@ -1,0 +1,14 @@
+# Compiled binary
+bbkt
+
+# Test binary
+*.test
+
+# Test coverage reports
+coverage.out
+coverage.html
+
+# goreleaser output
+dist/
+
+.planning
