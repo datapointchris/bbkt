@@ -17,8 +17,9 @@ var (
 )
 
 var prListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List pull requests",
+	Use:     "list",
+	GroupID: groupRead,
+	Short:   "List pull requests",
 	Long: "Lists pull requests for the current repository.\n\n" +
 		"--reviewing and --mine query Bitbucket's own cross-repository views, so they\n" +
 		"work from anywhere and cover every repository on the instance.",

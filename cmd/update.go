@@ -18,5 +18,7 @@ func updateConfig() goselfupdate.Config {
 }
 
 func init() {
-	rootCmd.AddCommand(cobracmd.New(updateConfig()))
+	updateCmd := cobracmd.New(updateConfig())
+	updateCmd.GroupID = groupTool
+	rootCmd.AddCommand(updateCmd)
 }

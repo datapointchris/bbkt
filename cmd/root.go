@@ -23,9 +23,23 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "bbkt",
 	Short: "Work Bitbucket Data Center pull requests from the terminal",
-	Long: "bbkt drives the pull request lifecycle on a self-hosted Bitbucket Data Center\n" +
-		"instance. The project and repository are read from the git remote, so most\n" +
-		"commands need no arguments inside a clone.",
+	Long: `bbkt drives the pull request lifecycle on a self-hosted Bitbucket Data Center
+instance.
+
+Commands follow the shape: bbkt pr VERB [ID] — the noun is always "pr", so a
+create → review → merge loop changes only the verb.
+
+One rule: the id is optional everywhere it appears. Given, it targets that pull
+request; omitted, it targets the pull request for the checked-out branch.
+
+Where you are is inferred, not configured. The project key and repository slug
+come from the git remote, and --reviewing/--mine ask Bitbucket's own cross-repo
+views, so nothing needs a list of repositories. Every level is self-documenting:
+run any partial command with no arguments or --help to see what comes next.`,
+	Example: `  bbkt pr list --reviewing   what is waiting on your review, across every repo
+  bbkt pr create             open a pull request from the checked-out branch
+  bbkt pr view 42            title, reviewers, and the command to diff it
+  bbkt pr merge              merge the pull request for this branch`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }
@@ -40,7 +54,19 @@ func Execute() {
 	}
 }
 
+// Command groups keep the help readable as verbs accumulate: a flat list mixes
+// the domain with the plumbing, and the domain is what someone is looking for.
+const (
+	groupPullRequests = "pull-requests"
+	groupTool         = "tool"
+)
+
 func init() {
+	rootCmd.AddGroup(
+		&cobra.Group{ID: groupPullRequests, Title: "Pull requests"},
+		&cobra.Group{ID: groupTool, Title: "Managing bbkt itself"},
+	)
+
 	rootCmd.PersistentFlags().StringVarP(&repoSpec, "repo", "R", "", "target PROJECT/SLUG instead of the current directory's remote")
 	rootCmd.PersistentFlags().StringVar(&remoteName, "remote", "origin", "git remote to read the repository from")
 	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "never prompt; fail naming the flag that would have answered")

@@ -12,8 +12,9 @@ import (
 var printOnly bool
 
 var prOpenCmd = &cobra.Command{
-	Use:   "open [id]",
-	Short: "Open a pull request in the browser",
+	Use:     "open [id]",
+	GroupID: groupRead,
+	Short:   "Open a pull request in the browser",
 	Long: "Opens the pull request in a browser. With no id, opens the pull request for\n" +
 		"the checked-out branch.",
 	Example: "  bbkt pr open 42\n" +

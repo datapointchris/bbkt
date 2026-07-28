@@ -13,8 +13,9 @@ import (
 var mergeYes bool
 
 var prMergeCmd = &cobra.Command{
-	Use:   "merge [id]",
-	Short: "Merge a pull request",
+	Use:     "merge [id]",
+	GroupID: groupAct,
+	Short:   "Merge a pull request",
 	Long: "Merges a pull request after checking Bitbucket's own merge veto — conflicts,\n" +
 		"unmet approval requirements, and failed builds all surface before anything is\n" +
 		"written.\n\n" +

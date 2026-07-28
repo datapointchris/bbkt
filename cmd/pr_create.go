@@ -22,8 +22,9 @@ var (
 )
 
 var prCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Open a pull request from the current branch",
+	Use:     "create",
+	GroupID: groupAct,
+	Short:   "Open a pull request from the current branch",
 	Long: "Creates a pull request from the checked-out branch.\n\n" +
 		"When --title is omitted the branch name becomes the title, with any Jira work\n" +
 		"item key preserved — Bitbucket's Jira integration links the pull request by\n" +

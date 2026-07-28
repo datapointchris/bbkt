@@ -41,8 +41,9 @@ func resolveVersion(ldflagsVersion, moduleVersion string) string {
 }
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print bbkt version information",
+	Use:     "version",
+	GroupID: groupTool,
+	Short:   "Print bbkt version information",
 	Run: func(cmd *cobra.Command, args []string) {
 		current := buildVersion()
 		outf(cmd, "bbkt %s", current)

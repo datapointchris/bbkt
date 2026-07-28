@@ -10,8 +10,9 @@ import (
 var viewJSON bool
 
 var prViewCmd = &cobra.Command{
-	Use:   "view <id>",
-	Short: "Show a pull request",
+	Use:     "view <id>",
+	GroupID: groupRead,
+	Short:   "Show a pull request",
 	Long: "Shows title, branches, reviewers, and approval state.\n\n" +
 		"The diff is deliberately not fetched — `git diff target...source` renders the\n" +
 		"same merge-base diff Bitbucket's web view shows, locally and without the API.",
