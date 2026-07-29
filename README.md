@@ -68,12 +68,23 @@ diff, and git produces exactly that locally:
 
 ```bash
 git fetch origin
-git diff origin/main...HEAD | delta      # scan
-nvim -c 'DiffviewOpen origin/main...HEAD'  # review
+git diff origin/develop...HEAD | delta        # scan your own PR
+nvim -c 'DiffviewOpen origin/develop...HEAD'  # review it side by side
 ```
 
 `bbkt pr view` prints the corresponding command for the branches the pull request
-actually uses.
+actually uses, ready to paste.
+
+Three dots, not two: `origin/develop...HEAD` diffs from the **merge base** — what
+your branch adds since it diverged. Two dots (`origin/develop..HEAD`) compares the
+tips, so every commit that landed on `develop` after you branched shows up
+backwards, as if you had deleted it.
+
+Always the `origin/` ref, never a bare `develop`. A pull request's target is
+usually a long-lived branch you never check out, so a bare name either fails to
+resolve or resolves to a local copy pinned at whenever you made it — silently
+diffing against a stale target. `git fetch` keeps `origin/develop` current with no
+local branch and nothing to maintain.
 
 ## Jira linkage
 

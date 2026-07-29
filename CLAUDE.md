@@ -17,9 +17,13 @@ Cloud. When adding an endpoint, read the Data Center reference:
   cross-repo views use Bitbucket's server-side `/inbox/pull-requests` and
   `/dashboard/pull-requests`. Bitbucket answers "what needs me" itself, so there
   is nothing to keep in sync.
-- **No diff command.** `git diff target...source` is the same merge-base diff the
-  web view renders. Fetching it over the API would be a worse copy of something
-  git already does.
+- **No diff command.** `git diff origin/target...origin/source` is the same
+  merge-base diff the web view renders. Fetching it over the API would be a worse
+  copy of something git already does. Every hint bbkt prints uses
+  **remote-tracking refs**, never the bare `DisplayID`: a pull request's target is
+  usually a long-lived branch (`develop`/`uat`/`prod`) that is never checked out,
+  so a bare `develop` either fails to resolve or resolves to a local copy pinned
+  at whenever it was created — silently diffing against a stale target.
 - **Merge reads the version first.** Bitbucket uses `version` for optimistic
   concurrency; a stale one must fail rather than merge commits the caller never
   saw. Never cache it across commands.
