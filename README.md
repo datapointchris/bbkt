@@ -15,30 +15,45 @@ go install github.com/datapointchris/bbkt@latest
 
 ## Configure
 
-Create an HTTP access token in Bitbucket: **Profile picture → Manage account →
-HTTP access tokens**. A personal (user-level) token is required — project- and
-repository-scoped tokens cannot merge a pull request, because a merge creates a
-commit and that needs a real user identity.
+First create an HTTP access token in Bitbucket: **profile picture → Manage
+account → HTTP access tokens**. It must be a **personal** (user-level) token —
+project- and repository-scoped tokens cannot merge a pull request, because a
+merge creates a commit and that needs a real user identity.
 
-`~/.config/bbkt/config.toml`:
-
-```toml
-url = "https://bitbucket.corp.example"
-token_file = "~/.config/bbkt/token"
-default_target_branch = "main"
-
-# Only when the instance uses an internally-issued TLS certificate.
-# ca_file = "/etc/ssl/certs/corp-root-ca.pem"
-```
+Then:
 
 ```bash
-install -m 600 /dev/null ~/.config/bbkt/token
-printf '%s' 'YOUR_TOKEN' > ~/.config/bbkt/token
+bbkt config init    # prompts for the URL and the token, writes both files
+bbkt config check   # connects and reports who you are
 ```
 
-`BBKT_URL`, `BBKT_TOKEN`, `BBKT_TOKEN_FILE`, and `BBKT_CA_FILE` override the file.
-There is deliberately no `--token` flag: flag values land in `ps` output and shell
-history.
+`config init` writes `~/.config/bbkt/config.toml` and a `0600` token file beside
+it, and never overwrites either. In a script, pipe the token in instead:
+
+```bash
+pass show work/bitbucket | bbkt config init --no-input
+```
+
+`bbkt config example` prints the annotated config with every option, and
+`bbkt config edit` opens the real one.
+
+### Where a value came from
+
+`BBKT_URL`, `BBKT_TOKEN`, `BBKT_TOKEN_FILE`, and `BBKT_CA_FILE` each override the
+file, so the value in use is not always the one written down. `bbkt config show`
+reports both, and never prints the token itself:
+
+```yaml
+SETTING                VALUE                          SOURCE
+url                    https://bitbucket.corp.example config.toml
+token_file             ~/.config/bbkt/token           config.toml
+default_target_branch  develop                        config.toml
+ca_file                /etc/ssl/certs/corp-ca.pem     $BBKT_CA_FILE
+token                  found                          ~/.config/bbkt/token
+```
+
+There is deliberately no `--token` flag: flag values land in `ps` output and
+shell history.
 
 ## Use
 

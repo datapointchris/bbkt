@@ -81,9 +81,16 @@ func newClient() (*bitbucket.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newClientFrom(cfg, token)
+}
+
+// newClientFrom builds the client from an already-resolved config, so
+// `config check` can report each input as it resolves rather than failing the
+// whole setup on one line.
+func newClientFrom(cfg *config.Config, token config.Token) (*bitbucket.Client, error) {
 	return bitbucket.NewClient(bitbucket.Options{
 		BaseURL: cfg.URL,
-		Token:   token,
+		Token:   token.Value,
 		CAFile:  cfg.CAFile,
 	})
 }
