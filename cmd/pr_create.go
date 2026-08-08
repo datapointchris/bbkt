@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/datapointchris/goselfupdate/cobracmd"
 	"github.com/spf13/cobra"
 
 	"github.com/datapointchris/bbkt/bitbucket"
@@ -35,7 +36,7 @@ var prCreateCmd = &cobra.Command{
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if createBody != "" && createBodyFile != "" {
-			return fmt.Errorf("--body and --body-file are mutually exclusive")
+			return cobracmd.UsageError(fmt.Errorf("--body and --body-file are mutually exclusive"))
 		}
 
 		repo, err := resolveRepo()

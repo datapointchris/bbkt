@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/datapointchris/goselfupdate v0.5.0
+	github.com/datapointchris/goselfupdate v0.7.0
 	github.com/mattn/go-isatty v0.0.24
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.45.0
