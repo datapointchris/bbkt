@@ -10,7 +10,7 @@ is why this exists.
 ## Install
 
 ```bash
-go install github.com/datapointchris/bbkt@latest
+go install github.com/datapointchris/bbkt/v2@latest
 ```
 
 ## Configure

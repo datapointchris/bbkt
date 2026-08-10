@@ -1,4 +1,4 @@
-module github.com/datapointchris/bbkt
+module github.com/datapointchris/bbkt/v2
 
 go 1.26.5
 
