@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/datapointchris/bbkt/v2/bitbucket"
+	"github.com/datapointchris/bbkt/bitbucket"
 )
 
 func reviewCommand(use, short, status string) *cobra.Command {

@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/datapointchris/bbkt/v2/config"
+	"github.com/datapointchris/bbkt/config"
 )
 
 var configCmd = &cobra.Command{

@@ -10,8 +10,8 @@ import (
 	"github.com/datapointchris/goselfupdate/cobracmd"
 	"github.com/spf13/cobra"
 
-	"github.com/datapointchris/bbkt/v2/bitbucket"
-	"github.com/datapointchris/bbkt/v2/config"
+	"github.com/datapointchris/bbkt/bitbucket"
+	"github.com/datapointchris/bbkt/config"
 )
 
 var (
