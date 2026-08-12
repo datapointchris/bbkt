@@ -1,6 +1,6 @@
 # bbkt — Bitbucket Data Center pull request CLI
 
-Universal rules live in `~/.claude/CLAUDE.md`; fleet standards in `~/dev/standards/`
+Universal rules live in `~/.claude/CLAUDE.md`; fleet standards in `standards/`
 (`go.md`, `cli-design.md`, `release.md`, `repo-structure.md`). This file holds only
 what is specific to bbkt.
 
