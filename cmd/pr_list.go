@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/datapointchris/goselfupdate/cobracmd"
+	"github.com/datapointchris/goclikit"
 	"github.com/spf13/cobra"
 
 	"github.com/datapointchris/bbkt/bitbucket"
@@ -31,7 +31,7 @@ var prListCmd = &cobra.Command{
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if listReviewing && listMine {
-			return cobracmd.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
+			return goclikit.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
 		}
 
 		client, err := newClient()
