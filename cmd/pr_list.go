@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/datapointchris/goclikit"
 	"github.com/spf13/cobra"
@@ -33,10 +34,20 @@ var prListCmd = &cobra.Command{
 		if listReviewing && listMine {
 			return goclikit.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
 		}
-		// Ahead of newClient, so a cap the command cannot use is refused before
-		// the token is read and the round trip is spent on it.
+		// Both answers to a --limit the command cannot use are given here,
+		// ahead of newClient. A negative is a typing mistake; a zero is a
+		// complete request whose answer is known. Neither owes a token, a git
+		// remote or a round trip, and reaching newClient for either turns a
+		// question that cannot fail into an exit 1.
 		if listLimit < 0 {
-			return goclikit.UsageError(fmt.Errorf("--limit cannot be negative; the smallest cap is 0"))
+			return goclikit.UsageError(fmt.Errorf("--limit cannot be negative; 0 is the smallest it takes"))
+		}
+		if listLimit == 0 {
+			if listJSON {
+				return emitJSON(cmd, []bitbucket.PullRequest{})
+			}
+			infof(cmd, "--limit 0 asked for no pull requests; bbkt pr list -n 25 shows the first 25.")
+			return nil
 		}
 
 		client, err := newClient()
@@ -45,19 +56,21 @@ var prListCmd = &cobra.Command{
 		}
 
 		var prs []bitbucket.PullRequest
+		var truncated bool
 		crossRepo := listReviewing || listMine
 		switch {
 		case listReviewing:
-			prs, err = client.ListInbox(listLimit)
+			prs, truncated, err = client.ListInbox(&listLimit)
 		case listMine:
-			prs, err = client.ListDashboard(listState, "AUTHOR", listLimit)
+			prs, truncated, err = client.ListDashboard(listState, "AUTHOR", &listLimit)
 		default:
 			var repo bitbucket.Repo
 			repo, err = resolveRepo()
 			if err != nil {
 				return err
 			}
-			prs, err = client.ListPullRequests(repo, bitbucket.ListOptions{State: listState, Limit: listLimit})
+			prs, truncated, err = client.ListPullRequests(repo,
+				bitbucket.ListOptions{State: listState, Limit: &listLimit})
 		}
 		if err != nil {
 			return err
@@ -68,14 +81,7 @@ var prListCmd = &cobra.Command{
 		}
 
 		if len(prs) == 0 {
-			// Nothing was requested when the cap is zero, so nothing was
-			// measured either. "No pull requests" would report the instance as
-			// bare on the strength of a question never asked.
-			if listLimit == 0 {
-				infof(cmd, "--limit 0 asked for no pull requests.")
-				return nil
-			}
-			infof(cmd, "No pull requests.")
+			infof(cmd, "%s", noPullRequests(listState))
 			return nil
 		}
 
@@ -100,14 +106,27 @@ var prListCmd = &cobra.Command{
 			return err
 		}
 
-		// A full page is the one screen that cannot say whether it is the whole
-		// answer, and the row count alone reads as the total. The hint goes to
-		// stderr so it reaches a person and not a pipe.
-		if len(prs) == listLimit {
-			infof(cmd, "\nStopped at the %d-row cap; -n raises it.", listLimit)
+		// The server said whether rows were left behind, so this reports a fact
+		// rather than a guess from the row count. That guess is wrong exactly
+		// where a repository holds as many pull requests as the limit: it
+		// announces hidden rows and raising --limit produces none.
+		if truncated {
+			infof(cmd, "\nMore pull requests exist beyond --limit %d; bbkt pr list -n %d shows more.",
+				listLimit, listLimit*2)
 		}
 		return nil
 	},
+}
+
+// noPullRequests names the flag that widens the question. An empty listing is
+// read by someone who expected rows, and --state is what they have not tried;
+// with every state already asked for there is nothing further to offer.
+func noPullRequests(state string) string {
+	if strings.EqualFold(state, "ALL") {
+		return "No pull requests."
+	}
+	return fmt.Sprintf("No %s pull requests; bbkt pr list --state ALL includes every state.",
+		strings.ToLower(state))
 }
 
 func init() {

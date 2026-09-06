@@ -66,7 +66,10 @@ func pullRequestForCurrentBranch(client *bitbucket.Client, repo bitbucket.Repo) 
 	if err != nil {
 		return nil, err
 	}
-	prs, err := client.ListPullRequests(repo, bitbucket.ListOptions{State: "OPEN"})
+	// Every open pull request, because the one for this branch could be any of
+	// them and no row count would reliably reach it. That is what an unset
+	// Limit asks for; truncation cannot happen, so the flag is discarded.
+	prs, _, err := client.ListPullRequests(repo, bitbucket.ListOptions{State: "OPEN"})
 	if err != nil {
 		return nil, err
 	}
