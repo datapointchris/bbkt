@@ -145,15 +145,37 @@ type page struct {
 	Values        json.RawMessage `json:"values"`
 }
 
-// paged walks Bitbucket's start/limit pagination until limit results are
-// collected or the server reports the last page. A limit of 0 means everything.
-func (c *Client) paged(path string, query url.Values, limit int, collect func(json.RawMessage) (int, error)) error {
+// paged walks Bitbucket's start/limit pagination and reports whether rows were
+// left behind.
+//
+// A nil limit walks to the last page. That is how a caller says "every row",
+// and it is a separate answer from any number, because no number expresses it
+// and the caller that needs it — finding the pull request for a branch — has no
+// count it could pick. A limit of zero collects nothing and issues no request,
+// since asking the server for rows the caller does not want spends a round trip
+// on an answer that gets discarded.
+//
+// The bool is the server's own stop reason carried up. Whoever renders rows
+// cannot tell a full page from the end of the data, and re-deriving it from the
+// row count is wrong in exactly the case where the count equals the limit.
+//
+// collect reports how many rows the page held and how many it kept, which are
+// different on the page the limit lands in the middle of.
+func (c *Client) paged(
+	path string,
+	query url.Values,
+	limit *int,
+	collect func(json.RawMessage) (held, kept int, err error),
+) (bool, error) {
+	if limit != nil && *limit <= 0 {
+		return false, nil
+	}
 	if query == nil {
 		query = url.Values{}
 	}
 	pageSize := 25
-	if limit > 0 && limit < pageSize {
-		pageSize = limit
+	if limit != nil && *limit < pageSize {
+		pageSize = *limit
 	}
 
 	got := 0
@@ -164,16 +186,21 @@ func (c *Client) paged(path string, query url.Values, limit int, collect func(js
 
 		var p page
 		if err := c.do(http.MethodGet, path, query, nil, &p); err != nil {
-			return err
+			return false, err
 		}
-		n, err := collect(p.Values)
+		held, kept, err := collect(p.Values)
 		if err != nil {
-			return err
+			return false, err
 		}
-		got += n
+		got += kept
 
-		if p.IsLastPage || n == 0 || (limit > 0 && got >= limit) {
-			return nil
+		if limit != nil && got >= *limit {
+			// The limit stopped the walk. Rows are left behind when this page
+			// held more than was kept, or when the server has further pages.
+			return kept < held || !p.IsLastPage, nil
+		}
+		if p.IsLastPage || held == 0 {
+			return false, nil
 		}
 		start = p.NextPageStart
 	}

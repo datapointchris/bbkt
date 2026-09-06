@@ -90,14 +90,24 @@ func prPath(r Repo) string {
 	return fmt.Sprintf("/projects/%s/repos/%s/pull-requests", r.Project, r.Slug)
 }
 
+// ListOptions narrows a listing of pull requests.
+//
+// Limit is how many rows to return. A nil Limit returns every row, which is the
+// ordinary reading of an option nobody set, and it is the only way to say so —
+// no number means "all". A Limit of zero returns none and issues no request.
+//
+// The pointer is what keeps those two answers apart. An int would spend its
+// zero on one of them, and whichever it spent would silently become the answer
+// for every caller that left the field out of a struct literal.
 type ListOptions struct {
 	State string
 	Role  string
-	Limit int
+	Limit *int
 }
 
-// ListPullRequests returns pull requests for one repository.
-func (c *Client) ListPullRequests(r Repo, opts ListOptions) ([]PullRequest, error) {
+// ListPullRequests returns pull requests for one repository, and reports
+// whether opts.Limit left rows behind.
+func (c *Client) ListPullRequests(r Repo, opts ListOptions) ([]PullRequest, bool, error) {
 	q := url.Values{}
 	if opts.State != "" {
 		q.Set("state", opts.State)
@@ -109,15 +119,19 @@ func (c *Client) ListPullRequests(r Repo, opts ListOptions) ([]PullRequest, erro
 }
 
 // ListInbox returns pull requests across every repository where the
-// authenticated user is a reviewer. Bitbucket answers this server-side, so no
-// local repository registry is needed.
-func (c *Client) ListInbox(limit int) ([]PullRequest, error) {
+// authenticated user is a reviewer, and reports whether limit left rows behind.
+// Bitbucket answers this server-side, so no local repository registry is needed.
+//
+// A nil limit returns every row; a limit of zero returns none.
+func (c *Client) ListInbox(limit *int) ([]PullRequest, bool, error) {
 	return c.collectPullRequests("/inbox/pull-requests", url.Values{}, limit)
 }
 
 // ListDashboard returns pull requests across every repository the authenticated
-// user authored or reviews.
-func (c *Client) ListDashboard(state string, role string, limit int) ([]PullRequest, error) {
+// user authored or reviews, and reports whether limit left rows behind.
+//
+// A nil limit returns every row; a limit of zero returns none.
+func (c *Client) ListDashboard(state string, role string, limit *int) ([]PullRequest, bool, error) {
 	q := url.Values{}
 	if state != "" {
 		q.Set("state", state)
@@ -128,22 +142,29 @@ func (c *Client) ListDashboard(state string, role string, limit int) ([]PullRequ
 	return c.collectPullRequests("/dashboard/pull-requests", q, limit)
 }
 
-func (c *Client) collectPullRequests(path string, q url.Values, limit int) ([]PullRequest, error) {
-	var out []PullRequest
-	err := c.paged(path, q, limit, func(raw json.RawMessage) (int, error) {
+// collectPullRequests decodes each page into one slice, stopping at the limit.
+//
+// The slice starts empty rather than nil, because a nil one marshals to JSON's
+// null and a caller's `jq '.[]'` cannot iterate that. A list read answers with a
+// list whether or not it found anything.
+func (c *Client) collectPullRequests(path string, q url.Values, limit *int) ([]PullRequest, bool, error) {
+	out := []PullRequest{}
+	truncated, err := c.paged(path, q, limit, func(raw json.RawMessage) (int, int, error) {
 		var batch []PullRequest
 		if err := json.Unmarshal(raw, &batch); err != nil {
-			return 0, err
+			return 0, 0, err
 		}
+		kept := 0
 		for _, pr := range batch {
-			if limit > 0 && len(out) >= limit {
+			if limit != nil && len(out) >= *limit {
 				break
 			}
 			out = append(out, pr)
+			kept++
 		}
-		return len(batch), nil
+		return len(batch), kept, nil
 	})
-	return out, err
+	return out, truncated, err
 }
 
 func (c *Client) GetPullRequest(r Repo, id int) (*PullRequest, error) {

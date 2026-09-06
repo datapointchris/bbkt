@@ -49,18 +49,55 @@ func TestListPullRequestsPaginates(t *testing.T) {
 	client, _ := newTestClient(t, mux)
 	repo := Repo{Project: "DATA", Slug: "pipeline"}
 
-	prs, err := client.ListPullRequests(repo, ListOptions{State: "OPEN", Limit: 0})
+	// No limit at all, which is what every caller that leaves the field out of
+	// the literal asks for. The walk stops on isLastPage and both pages run.
+	prs, truncated, err := client.ListPullRequests(repo, ListOptions{State: "OPEN"})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
 	if len(prs) != 3 {
 		t.Fatalf("got %d pull requests, want 3", len(prs))
 	}
+	if truncated {
+		t.Error("an uncapped walk reported rows left behind")
+	}
 	if len(seenStarts) != 2 || seenStarts[0] != "0" || seenStarts[1] != "2" {
 		t.Errorf("pagination walked starts %v, want [0 2]", seenStarts)
 	}
 	if prs[0].FromRef.DisplayID != "feature/PROJ-1" {
 		t.Errorf("fromRef displayId = %q", prs[0].FromRef.DisplayID)
+	}
+}
+
+// The zero value of ListOptions is what a caller writes when they have no
+// opinion about how many rows they want, and every literal that omits Limit
+// writes it. Reading that as "no rows" is invisible in Go: the compiler sees a
+// well-typed call and no site reads as changed.
+//
+// This is the shape that broke pr approve, pr unapprove, pr needs-work and the
+// no-id forms of pr merge and pr open, all of which find their pull request by
+// listing every open one and matching the branch.
+func TestAnOmittedLimitReturnsEveryRow(t *testing.T) {
+	requests := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		writeJSON(w, map[string]any{
+			"size": 1, "isLastPage": true,
+			"values": []map[string]any{prFixture(7, "seventh")},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{State: "OPEN"})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if requests != 1 {
+		t.Errorf("issued %d requests, want 1", requests)
+	}
+	if len(prs) != 1 {
+		t.Fatalf("got %d pull requests, want 1", len(prs))
 	}
 }
 
@@ -77,12 +114,142 @@ func TestListPullRequestsRespectsLimit(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	prs, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: 2})
+	two := 2
+	prs, truncated, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &two})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
 	if len(prs) != 2 {
 		t.Fatalf("got %d, want 2 — limit must stop the walk", len(prs))
+	}
+	if !truncated {
+		t.Error("a walk stopped by the limit reported no rows left behind")
+	}
+}
+
+// The walk stopping at the limit is not the same fact as rows being left
+// behind, and they part company exactly where a repository holds as many rows
+// as the limit. Re-deriving truncation from the row count cannot tell them
+// apart, so the server's own isLastPage is what answers.
+func TestALimitEqualToTheRowCountLeavesNothingBehind(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{
+			"size": 3, "isLastPage": true,
+			"values": []map[string]any{
+				prFixture(1, "first"), prFixture(2, "second"), prFixture(3, "third"),
+			},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	three := 3
+	prs, truncated, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &three})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if len(prs) != 3 {
+		t.Fatalf("got %d, want 3", len(prs))
+	}
+	if truncated {
+		t.Error("a complete listing was reported as truncated")
+	}
+}
+
+// The cap landing mid-page leaves rows behind even when that page is the last
+// one, so the page's own row count has to be weighed against what was kept.
+func TestALimitInsideTheLastPageLeavesRowsBehind(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{
+			"size": 3, "isLastPage": true,
+			"values": []map[string]any{
+				prFixture(1, "first"), prFixture(2, "second"), prFixture(3, "third"),
+			},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	two := 2
+	prs, truncated, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &two})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if len(prs) != 2 {
+		t.Fatalf("got %d, want 2", len(prs))
+	}
+	if !truncated {
+		t.Error("a listing cut inside the last page reported nothing left behind")
+	}
+}
+
+// A list read answers with a list. A nil slice marshals to JSON's null, which a
+// consumer's `jq '.[]'` cannot iterate, so the type a caller decodes would flip
+// between array and null on whether anything was found.
+func TestAnEmptyListingMarshalsToAnEmptyArray(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"size": 0, "isLastPage": true, "values": []map[string]any{}})
+	})
+
+	client, _ := newTestClient(t, mux)
+	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{State: "OPEN"})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+
+	encoded, err := json.Marshal(prs)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if string(encoded) != "[]" {
+		t.Errorf("an empty listing encoded as %s, want []", encoded)
+	}
+}
+
+// A cap of zero is a request for no rows, and the cheapest way to serve it is
+// not to ask. The handler fails the test if it is reached, which is the only
+// assertion that can tell "asked and discarded" from "never asked".
+func TestACapOfZeroIssuesNoRequest(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a cap of zero reached the server at %s", r.URL)
+		writeJSON(w, map[string]any{
+			"size": 1, "isLastPage": true,
+			"values": []map[string]any{prFixture(1, "first")},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	zero := 0
+	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &zero})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if len(prs) != 0 {
+		t.Fatalf("got %d pull requests, want none", len(prs))
+	}
+}
+
+// A negative is not a number of rows, so it collects nothing for the same
+// reason a zero does. The trap it stands in front of is a `> 0` comparison: a
+// negative falls straight through one into an unbounded walk, which reads every
+// page of a repository's history and returns a list that looks entirely
+// plausible.
+func TestANegativeCapCollectsNothing(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a negative cap reached the server at %s", r.URL)
+	})
+
+	client, _ := newTestClient(t, mux)
+	negative := -1
+	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &negative})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if len(prs) != 0 {
+		t.Fatalf("got %d pull requests, want none", len(prs))
 	}
 }
 
