@@ -136,7 +136,7 @@ func (c *Client) collectPullRequests(path string, q url.Values, limit int) ([]Pu
 			return 0, err
 		}
 		for _, pr := range batch {
-			if limit > 0 && len(out) >= limit {
+			if len(out) >= limit {
 				break
 			}
 			out = append(out, pr)

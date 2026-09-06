@@ -49,7 +49,9 @@ func TestListPullRequestsPaginates(t *testing.T) {
 	client, _ := newTestClient(t, mux)
 	repo := Repo{Project: "DATA", Slug: "pipeline"}
 
-	prs, err := client.ListPullRequests(repo, ListOptions{State: "OPEN", Limit: 0})
+	// A cap above the three rows the server holds, so the walk stops on
+	// isLastPage rather than on the cap and both pages are exercised.
+	prs, err := client.ListPullRequests(repo, ListOptions{State: "OPEN", Limit: 10})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -83,6 +85,50 @@ func TestListPullRequestsRespectsLimit(t *testing.T) {
 	}
 	if len(prs) != 2 {
 		t.Fatalf("got %d, want 2 — limit must stop the walk", len(prs))
+	}
+}
+
+// A cap of zero is a request for no rows, and the cheapest way to serve it is
+// not to ask. The handler fails the test if it is reached, which is the only
+// assertion that can tell "asked and discarded" from "never asked".
+func TestACapOfZeroIssuesNoRequest(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a cap of zero reached the server at %s", r.URL)
+		writeJSON(w, map[string]any{
+			"size": 1, "isLastPage": true,
+			"values": []map[string]any{prFixture(1, "first")},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	prs, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: 0})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if len(prs) != 0 {
+		t.Fatalf("got %d pull requests, want none", len(prs))
+	}
+}
+
+// A negative is not a number of rows, so it collects nothing for the same
+// reason a zero does. The trap it stands in front of is a `> 0` comparison: a
+// negative falls straight through one into an unbounded walk, which reads every
+// page of a repository's history and returns a list that looks entirely
+// plausible.
+func TestANegativeCapCollectsNothing(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("a negative cap reached the server at %s", r.URL)
+	})
+
+	client, _ := newTestClient(t, mux)
+	prs, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: -1})
+	if err != nil {
+		t.Fatalf("ListPullRequests: %v", err)
+	}
+	if len(prs) != 0 {
+		t.Fatalf("got %d pull requests, want none", len(prs))
 	}
 }
 

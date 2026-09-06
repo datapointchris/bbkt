@@ -33,6 +33,11 @@ var prListCmd = &cobra.Command{
 		if listReviewing && listMine {
 			return goclikit.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
 		}
+		// Ahead of newClient, so a cap the command cannot use is refused before
+		// the token is read and the VPN round trip is spent on it.
+		if listLimit < 0 {
+			return goclikit.UsageError(fmt.Errorf("--limit cannot be negative; the smallest cap is 0"))
+		}
 
 		client, err := newClient()
 		if err != nil {
@@ -63,6 +68,13 @@ var prListCmd = &cobra.Command{
 		}
 
 		if len(prs) == 0 {
+			// Nothing was requested when the cap is zero, so nothing was
+			// measured either. "No pull requests" would report the instance as
+			// bare on the strength of a question never asked.
+			if listLimit == 0 {
+				infof(cmd, "--limit 0 asked for no pull requests.")
+				return nil
+			}
 			infof(cmd, "No pull requests.")
 			return nil
 		}
@@ -84,13 +96,23 @@ var prListCmd = &cobra.Command{
 			writef(table, "%d\t%s\t%s\t%s\t%s\n",
 				pr.ID, clip(pr.Title, 60), pr.Author.User.Name, approvals, pr.FromRef.DisplayID)
 		}
-		return table.Flush()
+		if err := table.Flush(); err != nil {
+			return err
+		}
+
+		// A full page is the one screen that cannot say whether it is the whole
+		// answer, and the row count alone reads as the total. The hint goes to
+		// stderr so it reaches a person and not a pipe.
+		if len(prs) == listLimit {
+			infof(cmd, "\nStopped at the %d-row cap; -n raises it.", listLimit)
+		}
+		return nil
 	},
 }
 
 func init() {
 	prListCmd.Flags().BoolVar(&listJSON, "json", false, "Output pull requests as JSON to stdout")
-	prListCmd.Flags().IntVarP(&listLimit, "limit", "n", 25, "maximum pull requests to return (0 for all)")
+	prListCmd.Flags().IntVarP(&listLimit, "limit", "n", 25, "Maximum number of pull requests to show")
 	prListCmd.Flags().StringVarP(&listState, "state", "s", "OPEN", "OPEN, MERGED, DECLINED, or ALL")
 	prListCmd.Flags().BoolVar(&listReviewing, "reviewing", false, "pull requests awaiting your review, across every repository")
 	prListCmd.Flags().BoolVar(&listMine, "mine", false, "pull requests you authored, across every repository")

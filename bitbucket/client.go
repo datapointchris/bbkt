@@ -146,13 +146,21 @@ type page struct {
 }
 
 // paged walks Bitbucket's start/limit pagination until limit results are
-// collected or the server reports the last page. A limit of 0 means everything.
+// collected or the server reports the last page.
+//
+// A limit of zero collects nothing and issues no request, and so does a
+// negative. Asking the server for rows the caller does not want is a round trip
+// over a VPN for an answer that gets discarded, and this is the layer where a
+// walk would otherwise run to the end of the history on a limit nobody meant.
 func (c *Client) paged(path string, query url.Values, limit int, collect func(json.RawMessage) (int, error)) error {
+	if limit <= 0 {
+		return nil
+	}
 	if query == nil {
 		query = url.Values{}
 	}
 	pageSize := 25
-	if limit > 0 && limit < pageSize {
+	if limit < pageSize {
 		pageSize = limit
 	}
 
@@ -172,7 +180,7 @@ func (c *Client) paged(path string, query url.Values, limit int, collect func(js
 		}
 		got += n
 
-		if p.IsLastPage || n == 0 || (limit > 0 && got >= limit) {
+		if p.IsLastPage || n == 0 || got >= limit {
 			return nil
 		}
 		start = p.NextPageStart
