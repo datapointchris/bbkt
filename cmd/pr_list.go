@@ -34,7 +34,7 @@ var prListCmd = &cobra.Command{
 			return goclikit.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
 		}
 		// Ahead of newClient, so a cap the command cannot use is refused before
-		// the token is read and the VPN round trip is spent on it.
+		// the token is read and the round trip is spent on it.
 		if listLimit < 0 {
 			return goclikit.UsageError(fmt.Errorf("--limit cannot be negative; the smallest cap is 0"))
 		}

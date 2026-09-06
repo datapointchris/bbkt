@@ -149,9 +149,9 @@ type page struct {
 // collected or the server reports the last page.
 //
 // A limit of zero collects nothing and issues no request, and so does a
-// negative. Asking the server for rows the caller does not want is a round trip
-// over a VPN for an answer that gets discarded, and this is the layer where a
-// walk would otherwise run to the end of the history on a limit nobody meant.
+// negative. Asking the server for rows the caller does not want spends a round
+// trip on an answer that gets discarded, and this is the layer where a walk
+// would otherwise run to the end of the history on a limit nobody meant.
 func (c *Client) paged(path string, query url.Values, limit int, collect func(json.RawMessage) (int, error)) error {
 	if limit <= 0 {
 		return nil
