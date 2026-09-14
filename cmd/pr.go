@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/datapointchris/goclikit"
+	"github.com/spf13/cobra"
+)
 
 // Verb groups within `pr`: reading is safe and browsing-shaped, acting changes
 // state on the server. Separating them makes the destructive half visible.
@@ -39,5 +42,6 @@ func init() {
 		&cobra.Group{ID: groupRead, Title: "Reading"},
 		&cobra.Group{ID: groupAct, Title: "Acting"},
 	)
+	goclikit.WithRecoveryHints(prCmd, prRecoveryHints...)
 	rootCmd.AddCommand(prCmd)
 }

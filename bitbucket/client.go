@@ -73,6 +73,14 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("bitbucket %d on %s", e.Status, e.Path)
 }
 
+// NotFound reports whether Bitbucket answered that the resource is not there.
+//
+// Data Center answers 404 for a pull request that does not exist and for one
+// the token cannot see, and the two want different remedies. Nothing in the
+// response separates them, so callers must not phrase recovery as though the
+// first is established — see the hints in cmd/notfound.go.
+func (e *APIError) NotFound() bool { return e.Status == http.StatusNotFound }
+
 func (c *Client) do(method, path string, query url.Values, body, out any) error {
 	full := c.baseURL + apiBase + path
 	if len(query) > 0 {
