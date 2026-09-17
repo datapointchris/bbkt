@@ -46,7 +46,7 @@ run any partial command with no arguments or --help to see what comes next.`,
 
 func Execute() {
 	autoConfig := autoupdate.Config{Update: updateConfig()}
-	if err := goclikit.Execute(context.Background(), rootCmd, autoConfig); err != nil {
+	if err := goclikit.Execute(context.Background(), rootCmd, autoConfig, goclikit.WithNotFound(notFound)); err != nil {
 		if !errors.Is(err, goclikit.ErrReported) {
 			fmt.Fprintln(os.Stderr, err)
 		}
