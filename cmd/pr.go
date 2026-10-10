@@ -12,7 +12,9 @@ const (
 	groupAct  = "act"
 )
 
-var prCmd = &cobra.Command{
+// A namespace: bare, it teaches the verbs rather than erroring on a missing
+// subcommand, and a word naming no verb exits 2 with the verbs near it.
+var prCmd = goclikit.AsNamespace(&cobra.Command{
 	Use:     "pr",
 	GroupID: groupPullRequests,
 	Short:   "Create, review, and merge pull requests",
@@ -29,13 +31,7 @@ one.`,
   bbkt pr view 42                 one pull request in detail
   bbkt pr approve                 approve this branch's pull request
   bbkt pr merge 42 --yes          merge without the confirmation prompt`,
-	// Help is never wrong; a bare `bbkt pr` teaches the verbs rather than
-	// erroring on a missing subcommand.
-	Args: cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
-}
+})
 
 func init() {
 	prCmd.AddGroup(

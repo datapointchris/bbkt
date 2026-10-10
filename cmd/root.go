@@ -45,8 +45,7 @@ run any partial command with no arguments or --help to see what comes next.`,
 }
 
 func Execute() {
-	autoConfig := autoupdate.Config{Update: updateConfig()}
-	if err := goclikit.Execute(context.Background(), rootCmd, autoConfig, goclikit.WithNotFound(notFound)); err != nil {
+	if err := run(rootCmd, autoupdate.Config{Update: updateConfig()}); err != nil {
 		if !errors.Is(err, goclikit.ErrReported) {
 			fmt.Fprintln(os.Stderr, err)
 		}
@@ -57,6 +56,13 @@ func Execute() {
 		}
 		os.Exit(1)
 	}
+}
+
+// run drives root through goclikit's bootstrap and returns its error. Separate
+// from Execute, which exits, so a test can drive the real tree with the version
+// check suppressed and read the error.
+func run(root *cobra.Command, config autoupdate.Config) error {
+	return goclikit.Execute(context.Background(), root, config, goclikit.WithNotFound(notFound))
 }
 
 // Command groups keep the help readable as verbs accumulate: a flat list mixes

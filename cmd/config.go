@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/datapointchris/goclikit"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -14,7 +15,7 @@ import (
 	"github.com/datapointchris/bbkt/config"
 )
 
-var configCmd = &cobra.Command{
+var configCmd = goclikit.AsNamespace(&cobra.Command{
 	Use:     "config",
 	GroupID: groupTool,
 	Short:   "Set up and inspect bbkt's configuration",
@@ -30,11 +31,7 @@ Starting from nothing: run "config init", then "config check".`,
   bbkt config check    prove the config reaches Bitbucket as you
   bbkt config show     the effective settings, and where each one came from
   bbkt config example  every option, annotated`,
-	Args: cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
-}
+})
 
 var configInitCmd = &cobra.Command{
 	Use:   "init",
