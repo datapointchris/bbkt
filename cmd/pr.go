@@ -23,6 +23,10 @@ var prCmd = goclikit.AsNamespace(&cobra.Command{
 The project key and repository slug come from the current directory's git
 remote; -R PROJECT/SLUG targets another repository from anywhere.
 
+A bare list answers for this repository alone. --reviewing and --mine ignore the
+remote and answer across every repository, so take a row's id together with
+the REPO it names: bbkt pr view 42 -R PROJ/service.
+
 Every verb that takes an id also works without one, in which case it targets the
 open pull request for the checked-out branch — so the common case is the short
 one.`,
