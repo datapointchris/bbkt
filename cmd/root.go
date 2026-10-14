@@ -26,6 +26,12 @@ var rootCmd = &cobra.Command{
 	Long: `bbkt drives the pull request lifecycle on a self-hosted Bitbucket Data Center
 instance.
 
+Start with bbkt pr list --reviewing for what waits on your review, or
+bbkt pr list --mine for where your own pull requests stand. Both ask Bitbucket's
+cross-repo views and answer from any directory; a bare bbkt pr list shows only the
+repository you are standing in. A cross-repo row's id belongs to its REPO
+column, so follow it with -R: bbkt pr view 42 -R PROJ/service.
+
 Commands follow the shape: bbkt pr VERB [ID] — the noun is always "pr", so a
 create → review → merge loop changes only the verb.
 
@@ -33,10 +39,11 @@ One rule: the id is optional everywhere it appears. Given, it targets that pull
 request; omitted, it targets the pull request for the checked-out branch.
 
 Where you are is inferred, not configured. The project key and repository slug
-come from the git remote, and --reviewing/--mine ask Bitbucket's own cross-repo
-views, so nothing needs a list of repositories. Every level is self-documenting:
-run any partial command with no arguments or --help to see what comes next.`,
+come from the git remote, so nothing needs a list of repositories. Every level
+is self-documenting: run any partial command with no arguments or --help to see
+what comes next.`,
 	Example: `  bbkt pr list --reviewing   what is waiting on your review, across every repo
+  bbkt pr list --mine        your own open pull requests, across every repo
   bbkt pr create             open a pull request from the checked-out branch
   bbkt pr view 42            title, reviewers, and the command to diff it
   bbkt pr merge              merge the pull request for this branch`,

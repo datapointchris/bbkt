@@ -9,6 +9,7 @@ import (
 
 	"github.com/datapointchris/goclikit"
 	"github.com/datapointchris/goselfupdate/autoupdate"
+	"github.com/spf13/cobra"
 )
 
 // runLine drives the real tree through run, the path the shipped binary takes,
@@ -63,5 +64,57 @@ func TestABareGroupShowsItsHelp(t *testing.T) {
 		if err := runLine(t, group); err != nil {
 			t.Errorf("bare %s failed: %v", group, err)
 		}
+	}
+}
+
+// An example is lifted verbatim more often than it is read, so every command
+// line on the screens that teach where a session starts must name a real
+// command and real flags. A typo here is copied into someone's shell.
+func TestEveryGuideExampleIsARealInvocation(t *testing.T) {
+	for _, screen := range []*cobra.Command{rootCmd, prCmd} {
+		for _, line := range strings.Split(screen.Example, "\n") {
+			invocation, _, _ := strings.Cut(strings.TrimSpace(line), "  ")
+			words := strings.Fields(invocation)
+			if len(words) == 0 || words[0] != "bbkt" {
+				t.Errorf("%s example %q does not start with bbkt", screen.Name(), line)
+				continue
+			}
+			found, rest, err := rootCmd.Find(words[1:])
+			if err != nil || found == rootCmd {
+				t.Errorf("%s example %q names no command: %v", screen.Name(), invocation, err)
+				continue
+			}
+			for _, word := range rest {
+				if !strings.HasPrefix(word, "-") {
+					continue
+				}
+				name := strings.TrimLeft(word, "-")
+				known := found.Flags().Lookup(name) != nil || found.InheritedFlags().Lookup(name) != nil
+				if len(name) == 1 {
+					known = found.Flags().ShorthandLookup(name) != nil || found.InheritedFlags().ShorthandLookup(name) != nil
+				}
+				if !known {
+					t.Errorf("%s example %q passes %s, which %s does not take", screen.Name(), invocation, word, found.CommandPath())
+				}
+			}
+		}
+	}
+}
+
+// The root screen states how a session opens and which listing answers which
+// question, and the commands it names are also examples, typed in full.
+func TestTheRootScreenSaysWhereToStart(t *testing.T) {
+	// Joined onto one line, so a sentence reads the same wherever it wraps.
+	long := strings.Join(strings.Fields(rootCmd.Long), " ")
+	for _, opener := range []string{"bbkt pr list --reviewing", "bbkt pr list --mine"} {
+		if !strings.Contains(long, opener+" for ") {
+			t.Errorf("root help does not say when to start with %q", opener)
+		}
+		if !strings.Contains(rootCmd.Example, "  "+opener+" ") {
+			t.Errorf("root examples do not include %q", opener)
+		}
+	}
+	if !strings.Contains(long, "a bare bbkt pr list shows only the repository you are standing in") {
+		t.Error("root help does not say what a bare pr list covers")
 	}
 }
