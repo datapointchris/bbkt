@@ -129,5 +129,4 @@ func init() {
 	prCreateCmd.Flags().StringVar(&createSource, "source", "", "source branch (default: the checked-out branch)")
 	prCreateCmd.Flags().StringSliceVar(&createReviewers, "reviewer", nil, "reviewer username, repeatable")
 	prCreateCmd.Flags().BoolVar(&createJSON, "json", false, "Output the created pull request as JSON to stdout")
-	prCmd.AddCommand(prCreateCmd)
 }

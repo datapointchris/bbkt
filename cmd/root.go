@@ -8,6 +8,7 @@ import (
 
 	"github.com/datapointchris/goclikit"
 	"github.com/datapointchris/goselfupdate/autoupdate"
+	"github.com/datapointchris/gotermstyle/cobrahelp"
 	"github.com/spf13/cobra"
 
 	"github.com/datapointchris/bbkt/bitbucket"
@@ -85,6 +86,10 @@ func init() {
 		&cobra.Group{ID: groupPullRequests, Title: "Pull requests"},
 		&cobra.Group{ID: groupTool, Title: "Managing bbkt itself"},
 	)
+	update := goclikit.UpdateCommand(updateConfig())
+	update.GroupID = groupTool
+	rootCmd.AddCommand(prCmd, configCmd, update, versionCmd)
+	cobrahelp.Install(rootCmd)
 
 	rootCmd.PersistentFlags().StringVarP(&repoSpec, "repo", "R", "", "target PROJECT/SLUG instead of the current directory's remote")
 	rootCmd.PersistentFlags().StringVar(&remoteName, "remote", "origin", "git remote to read the repository from")

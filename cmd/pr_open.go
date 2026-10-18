@@ -97,5 +97,4 @@ func candidateNames(candidates [][]string) string {
 
 func init() {
 	prOpenCmd.Flags().BoolVar(&printOnly, "print", false, "Print the URL to stdout instead of opening a browser")
-	prCmd.AddCommand(prOpenCmd)
 }

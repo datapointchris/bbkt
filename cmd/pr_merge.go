@@ -101,5 +101,4 @@ func confirm(cmd *cobra.Command, question string) (bool, error) {
 
 func init() {
 	prMergeCmd.Flags().BoolVar(&mergeYes, "yes", false, "merge without confirmation")
-	prCmd.AddCommand(prMergeCmd)
 }

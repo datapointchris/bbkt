@@ -121,7 +121,6 @@ var configJSON bool
 func init() {
 	configShowCmd.Flags().BoolVar(&configJSON, "json", false, "output as JSON")
 	configCmd.AddCommand(configInitCmd, configCheckCmd, configShowCmd, configPathCmd, configExampleCmd, configEditCmd)
-	rootCmd.AddCommand(configCmd)
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {

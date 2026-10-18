@@ -135,5 +135,4 @@ func init() {
 	prListCmd.Flags().StringVarP(&listState, "state", "s", "OPEN", "OPEN, MERGED, DECLINED, or ALL")
 	prListCmd.Flags().BoolVar(&listReviewing, "reviewing", false, "pull requests awaiting your review, across every repository")
 	prListCmd.Flags().BoolVar(&listMine, "mine", false, "pull requests you authored, across every repository")
-	prCmd.AddCommand(prListCmd)
 }

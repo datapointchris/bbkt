@@ -86,5 +86,4 @@ var prViewCmd = &cobra.Command{
 
 func init() {
 	prViewCmd.Flags().BoolVar(&viewJSON, "json", false, "Output the pull request as JSON to stdout")
-	prCmd.AddCommand(prViewCmd)
 }

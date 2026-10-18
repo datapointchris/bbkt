@@ -80,9 +80,3 @@ func pullRequestForCurrentBranch(client *bitbucket.Client, repo bitbucket.Repo) 
 	}
 	return nil, fmt.Errorf("no open pull request from branch %q in %s", branch, repo)
 }
-
-func init() {
-	prCmd.AddCommand(reviewCommand("approve", "Approve a pull request", "APPROVED"))
-	prCmd.AddCommand(reviewCommand("unapprove", "Withdraw approval from a pull request", "UNAPPROVED"))
-	prCmd.AddCommand(reviewCommand("needs-work", "Mark a pull request as needing work", "NEEDS_WORK"))
-}

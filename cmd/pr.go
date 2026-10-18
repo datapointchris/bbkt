@@ -42,6 +42,17 @@ func init() {
 		&cobra.Group{ID: groupRead, Title: "Reading"},
 		&cobra.Group{ID: groupAct, Title: "Acting"},
 	)
+	// The verbs sit in the order of the loop the root screen names: find one
+	// and read it, then create, review and merge.
+	prCmd.AddCommand(
+		prListCmd,
+		prViewCmd,
+		prOpenCmd,
+		prCreateCmd,
+		reviewCommand("approve", "Approve a pull request", "APPROVED"),
+		reviewCommand("unapprove", "Withdraw approval from a pull request", "UNAPPROVED"),
+		reviewCommand("needs-work", "Mark a pull request as needing work", "NEEDS_WORK"),
+		prMergeCmd,
+	)
 	goclikit.WithRecoveryHints(prCmd, prRecoveryHints...)
-	rootCmd.AddCommand(prCmd)
 }
