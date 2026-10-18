@@ -203,5 +203,4 @@ added to the system pool for bbkt's requests. There is no option to skip verific
 
 ## Inline review comments are not implemented
 
-Reading them means recursing `/activities`, and writing them means constructing a nested `anchor`.
-Both are worth doing, but only once the rest of the workflow has proven itself.
+Reading them means recursing `/activities`. Writing them means constructing a nested `anchor`.
