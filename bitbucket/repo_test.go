@@ -50,8 +50,13 @@ func TestParseRemote(t *testing.T) {
 			want:   Repo{Project: "DATA", Slug: "etl-common-lib"},
 		},
 		{
+			name:   "scp-style ssh, as an instance on port 22 hands out",
+			remote: "git@bitbucket.corp.example:DATA/pipeline.git",
+			want:   Repo{Project: "DATA", Slug: "pipeline"},
+		},
+		{
 			name:    "github remote is not bitbucket",
-			remote:  "git@github.com:datapointchris/bbkt.git",
+			remote:  "https://github.com/datapointchris/bbkt.git",
 			wantErr: true,
 		},
 		{

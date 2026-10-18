@@ -64,9 +64,13 @@ it targets the open pull request whose source is the checked-out branch. `pr vie
 and requires the id.
 
 Where you are is inferred rather than configured. The project key and repository slug come from the
-git remote, `origin` unless `--remote` names another. Two remote forms parse: an HTTP clone URL
-under `/scm/`, and an `ssh://` URL such as `ssh://git@host:7999/PROJECT/slug.git`. An scp-style
-`git@host:PROJECT/slug.git` does not. `-R PROJECT/SLUG` targets another repository from anywhere.
+git remote, `origin` unless `--remote` names another. These remote forms parse:
+
+- an HTTP clone URL under `/scm/`
+- an `ssh://` URL such as `ssh://git@host:7999/PROJECT/slug.git`
+- git's scp form, `git@host:PROJECT/slug.git`, which an instance serving SSH on port 22 hands out
+
+`-R PROJECT/SLUG` targets another repository from anywhere.
 
 `pr list`, `pr view`, `pr create` and `config show` take `--json`. Progress and confirmations go to
 stderr, so stdout carries only the answer. `--no-input` never prompts, and fails naming the flag
