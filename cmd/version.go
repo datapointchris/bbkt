@@ -16,9 +16,9 @@ var (
 )
 
 // buildVersion reports the running binary's version. `go install pkg@latest` —
-// how the dotfiles installer deploys bbkt onto the work box — applies no ldflags
-// but does stamp the module version into build info, so without this fallback
-// every install identifies as a dev build and `bbkt update` refuses to run.
+// the install the README leads with — applies no ldflags but does stamp the
+// module version into build info, so without this fallback every such install
+// identifies as a dev build and `bbkt update` refuses to run.
 func buildVersion() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -63,7 +63,7 @@ func init() {
 	rootCmd.Version = buildVersion()
 	rootCmd.SetVersionTemplate("bbkt {{.Version}}\n")
 
-	// Free -v for a future --verbose flag, matching forge, nomad, and meso.
+	// Keeps -v free for --verbose, which is what -v means to curl, ssh and rsync.
 	rootCmd.InitDefaultVersionFlag()
 	if f := rootCmd.Flags().Lookup("version"); f != nil {
 		f.Shorthand = ""

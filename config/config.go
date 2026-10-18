@@ -46,9 +46,9 @@ var ErrNoURL = errors.New("no Bitbucket URL configured")
 // Path reports where bbkt reads its config.
 //
 // XDG_CONFIG_HOME is read directly rather than through os.UserConfigDir, which
-// returns ~/Library/Application Support on darwin — the fleet puts every tool's
-// config under ~/.config on every platform, and a config path that moves with
-// the OS would make a synced dotfile wrong on one of them.
+// returns ~/Library/Application Support on darwin. bbkt keeps its config under
+// ~/.config on every platform, because a config path that moves with the OS
+// would make a dotfile synced between a Mac and a Linux box wrong on one of them.
 func Path() string {
 	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
 		return filepath.Join(dir, "bbkt", "config.toml")
