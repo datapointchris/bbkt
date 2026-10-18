@@ -16,7 +16,7 @@ var prViewCmd = &cobra.Command{
 	Long: "Shows title, branches, reviewers, and approval state.\n\n" +
 		"The diff is deliberately not fetched — `git diff origin/target...origin/source`\n" +
 		"renders the same merge-base diff Bitbucket's web view shows, locally and without\n" +
-		"the API. The command is printed ready to paste.",
+		"the API. The command is printed ready to paste, on the remote --remote names.",
 	Example: "  bbkt pr view 42\n" +
 		"  bbkt pr view 42 --json",
 	Args: cobra.ExactArgs(1),
@@ -76,8 +76,10 @@ var prViewCmd = &cobra.Command{
 		// locally without touching the API. Remote-tracking refs, not the bare branch names:
 		// the target of a pull request is usually a long-lived branch you never check out, so
 		// a bare `develop` either does not resolve or resolves to a local copy pinned at
-		// whenever you created it — silently diffing against a stale target.
-		writef(out, "\ndiff: git diff origin/%s...origin/%s\n", pr.ToRef.DisplayID, pr.FromRef.DisplayID)
+		// whenever you created it — silently diffing against a stale target. The refs are named
+		// for the remote the repository was read from, since --remote can name one other than
+		// origin.
+		writef(out, "\ndiff: git diff %[1]s/%[2]s...%[1]s/%[3]s\n", remoteName, pr.ToRef.DisplayID, pr.FromRef.DisplayID)
 		return nil
 	},
 }

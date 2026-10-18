@@ -114,7 +114,8 @@ nvim -c 'DiffviewOpen origin/develop...HEAD'  # review it side by side
 bbkt has no diff command. Bitbucket's web view renders a merge-base diff, and git produces exactly
 that locally. A copy fetched over the API would be a worse version of what git already makes.
 `pr view` ends on the `git diff origin/<target>...origin/<source>` line for the branches the pull
-request uses, ready to paste.
+request uses, ready to paste. Its refs name the remote `--remote` picks, which is `origin` unless
+you name another.
 
 Three dots, not two. `origin/develop...HEAD` diffs from the **merge base**: what your branch adds
 since it diverged. Two dots (`origin/develop..HEAD`) compares the tips. Every commit that landed on
