@@ -35,8 +35,9 @@ column, so follow it with -R: bbkt pr view 42 -R PROJ/service.
 Commands follow the shape: bbkt pr VERB [ID] — the noun is always "pr", so a
 create → review → merge loop changes only the verb.
 
-One rule: the id is optional everywhere it appears. Given, it targets that pull
-request; omitted, it targets the pull request for the checked-out branch.
+One rule: an id in brackets is optional. Given, it targets that pull request;
+omitted, it targets the open pull request for the checked-out branch. view <id>
+is the one verb that requires it.
 
 Where you are is inferred, not configured. The project key and repository slug
 come from the git remote, so nothing needs a list of repositories. Every level

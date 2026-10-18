@@ -27,9 +27,9 @@ A bare list answers for this repository alone. --reviewing and --mine ignore the
 remote and answer across every repository, so take a row's id together with
 the REPO it names: bbkt pr view 42 -R PROJ/service.
 
-Every verb that takes an id also works without one, in which case it targets the
+Every verb listed with [id] also works without one, in which case it targets the
 open pull request for the checked-out branch — so the common case is the short
-one.`,
+one. view <id> is the exception, and needs the id.`,
 	Example: `  bbkt pr list                    open pull requests in this repository
   bbkt pr list --reviewing        awaiting your review, across every repository
   bbkt pr view 42                 one pull request in detail

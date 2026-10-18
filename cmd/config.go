@@ -107,8 +107,9 @@ var configCheckCmd = &cobra.Command{
 
 The only check that means anything here. Nothing about a four-field TOML can be
 validated by reading it — whether the URL is reachable, the CA is the right one,
-and the token is a personal token that has not expired are all answered by the
-round trip and nothing else.
+and Bitbucket accepts the token are all answered by the round trip and nothing
+else. It names the account the token signs in as. It cannot tell a personal token
+from a project- or repository-scoped one, and only a personal token can merge.
 
 Exits non-zero on the first step that fails, naming that step.`,
 	Args: cobra.NoArgs,
