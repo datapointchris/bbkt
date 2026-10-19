@@ -145,8 +145,9 @@ bbkt pr comment reply 42 --to 1001                                   # answer a 
 
 `list` reads the pull request's activity stream, where each comment arrives with its replies nested
 beneath it. Comments on the pull request itself come first, then file and line comments by path and
-line. The number beside each comment is its id, which `reply --to` takes. `--json` prints the
-threads as Bitbucket's own comment objects, anchors included.
+line. The number beside each comment is its id, which `reply --to` takes. `--json` prints each
+thread as a comment object holding its id, version, text, author, dates, severity, state and
+anchor, with its replies nested under `comments`.
 
 A line comment sits on one side of the diff. `new` is the file as the pull request leaves it, where
 an added line lives. `old` is the file before the pull request, where a removed line lives. An
