@@ -164,12 +164,12 @@ before the editor opens.
 Without `--path`, the comment goes on the pull request itself. With `--path` and no `--line`, it
 goes on the file.
 
-The body comes from `--body-file FILE`, or `--body-file -` for stdin. Without either, on a
-terminal, `$VISUAL` or `$EDITOR` opens on a template, the way `git commit` does. The template quotes
-the line or comment being answered below git's scissors line, and everything from that line down
-is left out. An empty comment posts nothing. If Bitbucket refuses the post, what you wrote is kept
-in a file and the error names it. Off a terminal, or under `--no-input`, a missing `--body-file`
-exits 2 before anything is sent.
+The body comes from `--body TEXT`, `--body-file FILE`, or `--body-file -` for stdin. Without one,
+on a terminal, `$VISUAL` or `$EDITOR` opens on a template, the way `git commit` does. The template
+quotes the line or comment being answered below git's scissors line, and everything from that line
+down is left out. An empty comment posts nothing. If Bitbucket refuses the post, what you wrote is
+kept in a file and the error names it. Off a terminal, or under `--no-input`, a missing body exits 2
+before anything is sent.
 
 ## `pr create` — the branch name becomes the title, and the Jira key survives it
 

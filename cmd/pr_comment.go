@@ -32,9 +32,10 @@ A line comment sits on one side of the diff. new is the file as the pull request
 leaves it, where an added line lives. old is the file before it, where a removed
 line lives. An unchanged line is on both, numbered on each.
 
-The body comes from --body-file, or --body-file - for stdin. Without it, on a
-terminal, $VISUAL or $EDITOR opens the way git commit does. Off a terminal, or
-under --no-input, a missing --body-file is refused before anything is sent.`,
+The body comes from --body, --body-file, or --body-file - for stdin. Without
+one, on a terminal, $VISUAL or $EDITOR opens the way git commit does. Off a
+terminal, or under --no-input, a missing body is refused before anything is
+sent.`,
 	Example: `  bbkt pr comment list 42                          every thread and its ids
   bbkt pr comment create 42 --path a.go --line 40  line 40 of the new a.go
   bbkt pr comment reply 42 --to 1001               answer comment 1001`,
@@ -172,6 +173,7 @@ var (
 	createCommentPath     string
 	createCommentLine     int
 	createCommentSide     string
+	createCommentBody     string
 	createCommentBodyFile string
 	createCommentJSON     bool
 )
@@ -210,7 +212,7 @@ var prCommentCreateCmd = &cobra.Command{
 		if !ok {
 			return goclikit.UsageError(fmt.Errorf("--side takes new or old, got %q", createCommentSide))
 		}
-		body, err := prepareCommentBody(cmd, createCommentBodyFile)
+		body, err := prepareCommentBody(cmd, createCommentBody, createCommentBodyFile)
 		if err != nil {
 			return err
 		}
@@ -339,6 +341,7 @@ func viewCommand(id int) string {
 
 var (
 	replyCommentTo       int
+	replyCommentBody     string
 	replyCommentBodyFile string
 	replyCommentJSON     bool
 )
@@ -351,13 +354,14 @@ var prCommentReplyCmd = &cobra.Command{
 		"The comment is read before the editor opens, so a wrong --to is refused before\n" +
 		"you write anything, and the editor shows what you are answering.",
 	Example: "  bbkt pr comment reply 42 --to 1001\n" +
+		"  bbkt pr comment reply 42 --to 1001 --body 'Done.'\n" +
 		"  bbkt pr comment reply --to 1001 --body-file -",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if replyCommentTo < 1 {
 			return goclikit.UsageError(fmt.Errorf("--to takes the id of the comment to answer; bbkt pr comment list prints each one"))
 		}
-		body, err := prepareCommentBody(cmd, replyCommentBodyFile)
+		body, err := prepareCommentBody(cmd, replyCommentBody, replyCommentBodyFile)
 		if err != nil {
 			return err
 		}
@@ -407,7 +411,18 @@ func (b commentBody) close() {
 	}
 }
 
-func prepareCommentBody(cmd *cobra.Command, bodyFile string) (commentBody, error) {
+func prepareCommentBody(cmd *cobra.Command, body, bodyFile string) (commentBody, error) {
+	hasBody := cmd.Flags().Changed("body")
+	if hasBody && bodyFile != "" {
+		return commentBody{}, goclikit.UsageError(fmt.Errorf("--body and --body-file are mutually exclusive"))
+	}
+	if hasBody {
+		text := trimBody(body)
+		if text == "" {
+			return commentBody{}, goclikit.UsageError(fmt.Errorf("--body is empty; nothing to post"))
+		}
+		return commentBody{text: text}, nil
+	}
 	if bodyFile != "" {
 		text, err := readBodyFile(cmd, bodyFile)
 		if err != nil {
@@ -417,16 +432,16 @@ func prepareCommentBody(cmd *cobra.Command, bodyFile string) (commentBody, error
 	}
 	if noInput || !isatty.IsTerminal(os.Stdin.Fd()) {
 		return commentBody{}, goclikit.UsageError(fmt.Errorf(
-			"no comment body without a terminal; pass --body-file FILE, or --body-file - to read stdin"))
+			"no comment body without a terminal; pass --body TEXT, --body-file FILE, or --body-file - to read stdin"))
 	}
 	editor, err := editorCommand()
 	if err != nil {
-		return commentBody{}, fmt.Errorf("%w, or pass --body-file", err)
+		return commentBody{}, fmt.Errorf("%w, or pass --body or --body-file", err)
 	}
 	tty, err := openTerminal()
 	if err != nil {
 		return commentBody{}, goclikit.UsageError(fmt.Errorf(
-			"no terminal to open the editor on (%w); pass --body-file FILE, or --body-file - to read stdin", err))
+			"no terminal to open the editor on (%w); pass --body TEXT, --body-file FILE, or --body-file - to read stdin", err))
 	}
 	return commentBody{editor: editor, tty: tty}, nil
 }
@@ -561,10 +576,12 @@ func init() {
 	prCommentCreateCmd.Flags().StringVar(&createCommentPath, "path", "", "the file to comment on, as git diff names it")
 	prCommentCreateCmd.Flags().IntVar(&createCommentLine, "line", 0, "the line of --path to comment on")
 	prCommentCreateCmd.Flags().StringVar(&createCommentSide, "side", "new", "which file --line counts in: new, or old for a removed line")
+	prCommentCreateCmd.Flags().StringVarP(&createCommentBody, "body", "b", "", "the comment's text (default: $EDITOR)")
 	prCommentCreateCmd.Flags().StringVar(&createCommentBodyFile, "body-file", "", "read the comment from a file, or - for stdin (default: $EDITOR)")
 	prCommentCreateCmd.Flags().BoolVar(&createCommentJSON, "json", false, "Output the posted comment as JSON to stdout")
 
 	prCommentReplyCmd.Flags().IntVar(&replyCommentTo, "to", 0, "the id of the comment to answer")
+	prCommentReplyCmd.Flags().StringVarP(&replyCommentBody, "body", "b", "", "the reply's text (default: $EDITOR)")
 	prCommentReplyCmd.Flags().StringVar(&replyCommentBodyFile, "body-file", "", "read the reply from a file, or - for stdin (default: $EDITOR)")
 	prCommentReplyCmd.Flags().BoolVar(&replyCommentJSON, "json", false, "Output the posted reply as JSON to stdout")
 }
