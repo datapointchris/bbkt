@@ -376,6 +376,11 @@ func runConfigEdit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	tty, err := openTerminal()
+	if err != nil {
+		return fmt.Errorf("no terminal to open the editor on (%w); edit %s directly", err, config.Path())
+	}
+	defer func() { _ = tty.Close() }()
 	if _, err := os.Stat(config.Path()); os.IsNotExist(err) {
 		if err := config.Init("", config.DefaultTokenPath()); err != nil {
 			return err
@@ -384,7 +389,7 @@ func runConfigEdit(cmd *cobra.Command, args []string) error {
 	} else if err != nil {
 		return err
 	}
-	return runEditor(editor, config.Path())
+	return runEditor(editor, tty, config.Path())
 }
 
 func runConfigCheck(cmd *cobra.Command, args []string) error {

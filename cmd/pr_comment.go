@@ -213,6 +213,7 @@ var prCommentCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer body.close()
 
 		repo, err := resolveRepo()
 		if err != nil {
@@ -305,6 +306,7 @@ var prCommentReplyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer body.close()
 
 		repo, err := resolveRepo()
 		if err != nil {
@@ -341,6 +343,13 @@ var prCommentReplyCmd = &cobra.Command{
 type commentBody struct {
 	text   string
 	editor []string
+	tty    *os.File
+}
+
+func (b commentBody) close() {
+	if b.tty != nil {
+		_ = b.tty.Close()
+	}
 }
 
 func prepareCommentBody(cmd *cobra.Command, bodyFile string) (commentBody, error) {
@@ -359,7 +368,12 @@ func prepareCommentBody(cmd *cobra.Command, bodyFile string) (commentBody, error
 	if err != nil {
 		return commentBody{}, fmt.Errorf("%w, or pass --body-file", err)
 	}
-	return commentBody{editor: editor}, nil
+	tty, err := openTerminal()
+	if err != nil {
+		return commentBody{}, goclikit.UsageError(fmt.Errorf(
+			"no terminal to open the editor on (%w); pass --body-file FILE, or --body-file - to read stdin", err))
+	}
+	return commentBody{editor: editor, tty: tty}, nil
 }
 
 func readBodyFile(cmd *cobra.Command, bodyFile string) (string, error) {
@@ -401,7 +415,7 @@ const scissors = "# ------------------------ >8 ------------------------"
 // composeInEditor opens a template in the editor and returns the comment and
 // the file it was written in, which the caller removes once the comment is
 // posted and keeps when it is not.
-func composeInEditor(editor []string, about []string) (text, file string, err error) {
+func composeInEditor(editor []string, tty *os.File, about []string) (text, file string, err error) {
 	f, err := os.CreateTemp("", "bbkt-comment-*.md")
 	if err != nil {
 		return "", "", err
@@ -425,7 +439,7 @@ func composeInEditor(editor []string, about []string) (text, file string, err er
 		return "", "", err
 	}
 
-	if err := runEditor(editor, file); err != nil {
+	if err := runEditor(editor, tty, file); err != nil {
 		_ = os.Remove(file)
 		return "", "", fmt.Errorf("the editor exited with an error, so nothing was posted: %w", err)
 	}
@@ -460,7 +474,7 @@ func postComment(
 	file := ""
 	if body.editor != nil {
 		var err error
-		comment.Text, file, err = composeInEditor(body.editor, about)
+		comment.Text, file, err = composeInEditor(body.editor, body.tty, about)
 		if err != nil {
 			return err
 		}

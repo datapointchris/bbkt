@@ -29,10 +29,18 @@ func editorCommand() ([]string, error) {
 	return append([]string{binary}, parts[1:]...), nil
 }
 
-// runEditor opens path in the editor in the foreground. A terminal editor
-// blocks until it closes; a GUI editor returns at once unless told to wait.
-func runEditor(editor []string, path string) error {
+// openTerminal opens the controlling terminal for the editor to draw on and
+// read from. bbkt's own stdout may be a pipe carrying --json, and an editor
+// drawing there would hide itself from the user and corrupt the output.
+func openTerminal() (*os.File, error) {
+	return os.OpenFile("/dev/tty", os.O_RDWR, 0)
+}
+
+// runEditor opens path in the editor in the foreground, on tty. A terminal
+// editor blocks until it closes; a GUI editor returns at once unless told to
+// wait.
+func runEditor(editor []string, tty *os.File, path string) error {
 	editing := exec.Command(editor[0], append(editor[1:], path)...)
-	editing.Stdin, editing.Stdout, editing.Stderr = os.Stdin, os.Stdout, os.Stderr
+	editing.Stdin, editing.Stdout, editing.Stderr = tty, tty, tty
 	return editing.Run()
 }
