@@ -172,8 +172,9 @@ Then it reads the pull request's version. Bitbucket uses the version for optimis
 a stale one fails rather than merging commits you never saw. The version is read immediately before
 the prompt and never kept between commands.
 
-Without a terminal, or under `--no-input`, merge refuses to prompt and names `--yes`. It needs the
-personal token from the first run, since a scoped token cannot create the merge commit.
+Without a terminal, or under `--no-input`, merge refuses to prompt. It exits 2 naming `--yes`,
+before anything is asked of Bitbucket. It needs the personal token from the first run, since a
+scoped token cannot create the merge commit.
 
 ## `config` — a value can come from two places, and `show` says which won
 

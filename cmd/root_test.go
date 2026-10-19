@@ -51,6 +51,26 @@ func TestAnUnknownVerbIsRefusedWhateverFollowsIt(t *testing.T) {
 	}
 }
 
+// Every command that would prompt, given --no-input, names the flag that
+// answers it and exits 2 before the first request. The URL is a closed port,
+// so a refusal that came after a request would surface as a connection error.
+func TestAPromptWithoutATerminalIsAUsageErrorBeforeAnyRequest(t *testing.T) {
+	t.Setenv("BBKT_URL", "http://127.0.0.1:9")
+	t.Setenv("BBKT_TOKEN", "unused")
+	t.Cleanup(func() { noInput, repoSpec = false, "" })
+	for _, tt := range []struct {
+		args []string
+		flag string
+	}{
+		{[]string{"pr", "merge", "42"}, "--yes"},
+	} {
+		err := runLine(t, append(tt.args, "-R", "EX/demo", "--no-input")...)
+		if !errors.Is(err, goclikit.ErrUsage) || !strings.Contains(err.Error(), tt.flag) {
+			t.Errorf("%v answered %v, want a usage error naming %s", tt.args, err, tt.flag)
+		}
+	}
+}
+
 // A mistyped verb is answered with the verbs near it.
 func TestAMistypedVerbNamesTheNearOnes(t *testing.T) {
 	err := runLine(t, "pr", "mrege")
