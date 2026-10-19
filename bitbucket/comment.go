@@ -100,6 +100,8 @@ type commentActivity struct {
 //
 // Data Center releases before 8 put the anchor on the activity alone, and later
 // ones put it on the comment as well, so the comment's own wins when present.
+// A comment's newest activity, which is the one kept, can be an edit carrying
+// no anchor, so a thread without one takes it from an older activity.
 func (c *Client) ListCommentThreads(r Repo, id int) ([]Comment, error) {
 	var candidates []Comment
 	path := fmt.Sprintf("%s/%d/activities", prPath(r), id)
@@ -125,8 +127,12 @@ func (c *Client) ListCommentThreads(r Repo, id int) ([]Comment, error) {
 	}
 
 	nested := map[int]bool{}
+	anchors := map[int]*Anchor{}
 	for _, candidate := range candidates {
 		markReplies(candidate.Comments, nested)
+		if candidate.Anchor != nil && anchors[candidate.ID] == nil {
+			anchors[candidate.ID] = candidate.Anchor
+		}
 	}
 	threads := []Comment{}
 	seen := map[int]bool{}
@@ -135,7 +141,11 @@ func (c *Client) ListCommentThreads(r Repo, id int) ([]Comment, error) {
 			continue
 		}
 		seen[candidate.ID] = true
-		threads = append(threads, withListReplies(candidate))
+		thread := withListReplies(candidate)
+		if thread.Anchor == nil {
+			thread.Anchor = anchors[thread.ID]
+		}
+		threads = append(threads, thread)
 	}
 	sort.SliceStable(threads, func(i, j int) bool { return readsBefore(threads[i], threads[j]) })
 	return threads, nil
