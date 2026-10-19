@@ -49,11 +49,14 @@ reference prints real example payloads, a string `path` among them:
   `/approve`. The current user comes from the `X-AUSERNAME` response header —
   REST 1.0 has no `/myself` endpoint.
 
-## Tested without an instance
+## Tested against the published payloads
 
-Development has no Data Center instance to reach, so no test runs against a real
-one. `bitbucket/client_test.go` drives an `httptest` server with realistic
-Data Center payloads instead, and that is where an endpoint's shape gets pinned.
+`bitbucket/client_test.go` drives an `httptest` server with payloads built from
+the Data Center reference, and that is where an endpoint's shape gets pinned.
+That is the whole verification a change needs. Nothing waits on a run against a
+live instance: the first one after a release is ordinary use. A payload it shows
+to differ from the reference is a bug, and its fix moves the fixture to the real
+shape.
 
 bbkt is installed with `go install …@latest`, which applies no ldflags, so
 `buildVersion` reads the module version from build info. It runs under WSL as well
