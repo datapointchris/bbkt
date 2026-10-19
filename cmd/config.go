@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/datapointchris/goclikit"
@@ -373,6 +372,10 @@ func boolWord(cond bool, yes, no string) string {
 }
 
 func runConfigEdit(cmd *cobra.Command, args []string) error {
+	editor, err := editorCommand()
+	if err != nil {
+		return err
+	}
 	if _, err := os.Stat(config.Path()); os.IsNotExist(err) {
 		if err := config.Init("", config.DefaultTokenPath()); err != nil {
 			return err
@@ -381,26 +384,7 @@ func runConfigEdit(cmd *cobra.Command, args []string) error {
 	} else if err != nil {
 		return err
 	}
-
-	editor := os.Getenv("VISUAL")
-	if editor == "" {
-		editor = os.Getenv("EDITOR")
-	}
-	if editor == "" {
-		return fmt.Errorf("no editor configured — set $VISUAL or $EDITOR")
-	}
-
-	// $EDITOR may carry arguments ("code --wait", "emacsclient -nw"), so split it
-	// and resolve the binary rather than exec'ing the whole string.
-	parts := strings.Fields(editor)
-	binary, err := exec.LookPath(parts[0])
-	if err != nil {
-		return fmt.Errorf("editor not found on PATH: %s", parts[0])
-	}
-
-	editing := exec.Command(binary, append(parts[1:], config.Path())...)
-	editing.Stdin, editing.Stdout, editing.Stderr = os.Stdin, os.Stdout, os.Stderr
-	return editing.Run()
+	return runEditor(editor, config.Path())
 }
 
 func runConfigCheck(cmd *cobra.Command, args []string) error {
