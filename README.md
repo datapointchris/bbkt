@@ -157,8 +157,9 @@ the pull request's branch.
 Bitbucket also needs to know whether the line was added, removed or unchanged. A wrong answer puts
 the comment somewhere other than the line meant, so bbkt never asks for it. It reads that file's
 diff from Bitbucket and takes the answer from there, and the comment lands where the web view draws
-the line. A line the diff does not show is refused, as is a path the pull request leaves alone.
-Both are refused before the editor opens.
+the line. A line the diff does not show is refused. A path the pull request leaves alone is refused
+with the paths it does change, counted like `--path` from the repository root. Both are refused
+before the editor opens.
 
 Without `--path`, the comment goes on the pull request itself. With `--path` and no `--line`, it
 goes on the file.

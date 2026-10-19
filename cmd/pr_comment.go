@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/datapointchris/goclikit"
@@ -238,6 +239,10 @@ var prCommentCreateCmd = &cobra.Command{
 			if errors.As(err, &notInDiff) {
 				return lineNotInDiff(id, filePath, createCommentLine, createCommentSide)
 			}
+			var notChanged *bitbucket.PathNotChangedError
+			if errors.As(err, &notChanged) {
+				return pathNotChanged(notChanged)
+			}
 			if err != nil {
 				return err
 			}
@@ -266,10 +271,6 @@ var prCommentCreateCmd = &cobra.Command{
 // lineNotInDiff names the ways out of a line Bitbucket would not draw a
 // comment on: see the diff, try the other side, or comment on the file.
 func lineNotInDiff(id int, filePath string, line int, side string) error {
-	view := fmt.Sprintf("bbkt pr view %d", id)
-	if repoSpec != "" {
-		view += " -R " + repoSpec
-	}
 	otherSide := "A removed line is numbered on the old side: --side old"
 	if side == "old" {
 		otherSide = "An added line is numbered on the new side: drop --side old"
@@ -279,7 +280,61 @@ func lineNotInDiff(id int, filePath string, line int, side string) error {
 		"  Print the command that shows the diff: %s\n"+
 		"  %s\n"+
 		"  Drop --line to comment on the whole file",
-		line, filePath, id, side, view, otherSide)
+		line, filePath, id, side, viewCommand(id), otherSide)
+}
+
+// maxListedChanges is how many changed paths a refused --path lists in full.
+// Past it, only the paths sharing the file's name are listed.
+const maxListedChanges = 10
+
+// pathNotChanged lists the paths a pull request does change, so a --path that
+// missed shows what it should have been. A path typed from a subdirectory is
+// the likeliest miss, since --path counts from the repository root.
+func pathNotChanged(e *bitbucket.PathNotChangedError) error {
+	lines := []string{e.Error()}
+	prefix := ""
+	if repoSpec == "" {
+		prefix = bitbucket.WorkTreePrefix()
+	}
+	if prefix != "" {
+		lines = append(lines, fmt.Sprintf("--path counts from the repository root, not from %s", prefix))
+		if slices.Contains(e.Changed, prefix+e.Path) {
+			lines = append(lines, fmt.Sprintf("From %s, that file is --path %s", prefix, prefix+e.Path))
+			return errors.New(strings.Join(lines, "\n  "))
+		}
+	}
+
+	name := path.Base(e.Path)
+	listed := e.Changed
+	heading := fmt.Sprintf("#%d changes:", e.ID)
+	if len(e.Changed) > maxListedChanges {
+		listed = nil
+		for _, changed := range e.Changed {
+			if path.Base(changed) == name {
+				listed = append(listed, changed)
+			}
+		}
+		heading = fmt.Sprintf("Of the %d files #%d changes, these are named %s:", len(e.Changed), e.ID, name)
+	}
+	if len(listed) == 0 {
+		lines = append(lines,
+			fmt.Sprintf("None of the %d files #%d changes is named %s", len(e.Changed), e.ID, name),
+			"Print the command that shows the diff: "+viewCommand(e.ID))
+		return errors.New(strings.Join(lines, "\n  "))
+	}
+	lines = append(lines, heading)
+	for _, changed := range listed {
+		lines = append(lines, "  "+changed)
+	}
+	return errors.New(strings.Join(lines, "\n  "))
+}
+
+func viewCommand(id int) string {
+	view := fmt.Sprintf("bbkt pr view %d", id)
+	if repoSpec != "" {
+		view += " -R " + repoSpec
+	}
+	return view
 }
 
 var (

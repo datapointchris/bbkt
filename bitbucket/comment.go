@@ -235,16 +235,32 @@ func (c *Client) fileChange(r Repo, id int, path string) (*change, error) {
 	if err := json.Unmarshal(p.Values, &changes); err != nil {
 		return nil, err
 	}
+	changed := make([]string, 0, len(changes))
 	for i := range changes {
 		if string(changes[i].Path) == path || string(changes[i].SrcPath) == path {
 			return &changes[i], nil
 		}
+		changed = append(changed, string(changes[i].Path))
 	}
-	if !p.IsLastPage {
-		return nil, fmt.Errorf("%s is not among the %d changed files Bitbucket lists for #%d, which is as many as it returns",
-			path, len(changes), id)
+	return nil, &PathNotChangedError{ID: id, Path: path, Changed: changed, Listed: p.IsLastPage}
+}
+
+// PathNotChangedError says a pull request changes nothing at a path, and
+// carries the paths it does change. Listed is false when Bitbucket stopped the
+// list at its limit, so the path may be among the changes it left out.
+type PathNotChangedError struct {
+	ID      int
+	Path    string
+	Changed []string
+	Listed  bool
+}
+
+func (e *PathNotChangedError) Error() string {
+	if !e.Listed {
+		return fmt.Sprintf("%s is not among the %d changed files Bitbucket lists for #%d, which is as many as it returns",
+			e.Path, len(e.Changed), e.ID)
 	}
-	return nil, fmt.Errorf("#%d does not change %s", id, path)
+	return fmt.Sprintf("#%d does not change %s", e.ID, e.Path)
 }
 
 type fileDiff struct {

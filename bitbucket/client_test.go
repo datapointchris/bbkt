@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -550,8 +551,13 @@ func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
 		t.Errorf("diff of a moved file requested as %q, want its new path with srcPath set to the old one", last)
 	}
 
-	if _, _, err := client.ResolveAnchor(repo, 42, "docs/untouched.md", 0, FileTo); err == nil || !strings.Contains(err.Error(), "does not change") {
-		t.Errorf("a path the pull request leaves alone answered %v", err)
+	var notChanged *PathNotChangedError
+	_, _, err = client.ResolveAnchor(repo, 42, "docs/untouched.md", 0, FileTo)
+	if !errors.As(err, &notChanged) {
+		t.Fatalf("a path the pull request leaves alone answered %v, want a PathNotChangedError", err)
+	}
+	if want := []string{"README.md", "src/new.go"}; !slices.Equal(notChanged.Changed, want) {
+		t.Errorf("a path the pull request leaves alone carried %q, want the paths it changes, %q", notChanged.Changed, want)
 	}
 }
 
