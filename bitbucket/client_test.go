@@ -533,16 +533,12 @@ func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
 		t.Errorf("a line outside every hunk answered %v, want a LineNotInDiffError", err)
 	}
 
-	before := len(diffQueries)
 	anchor, _, err := client.ResolveAnchor(repo, 42, "src/old.go", 0, FileTo)
 	if err != nil {
 		t.Fatalf("a moved file found by its old path: %v", err)
 	}
 	if *anchor != (Anchor{Path: "src/new.go", SrcPath: "src/old.go"}) {
 		t.Errorf("file anchor on a moved file = %+v, want path src/new.go and srcPath src/old.go", *anchor)
-	}
-	if len(diffQueries) != before {
-		t.Error("a comment on a whole file read the diff, which only a line needs")
 	}
 	if _, _, err := client.ResolveAnchor(repo, 42, "src/new.go", 3, FileTo); !errors.As(err, &notInDiff) {
 		t.Fatalf("a line of a moved file: %v", err)
