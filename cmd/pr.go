@@ -7,9 +7,11 @@ import (
 
 // Verb groups within `pr`: reading is safe and browsing-shaped, acting changes
 // state on the server. Separating them makes the destructive half visible.
+// Commenting holds the comment namespace, whose verbs do both.
 const (
-	groupRead = "read"
-	groupAct  = "act"
+	groupRead    = "read"
+	groupComment = "comment"
+	groupAct     = "act"
 )
 
 // A namespace: bare, it teaches the verbs rather than erroring on a missing
@@ -33,6 +35,7 @@ one. view <id> is the exception, and needs the id.`,
 	Example: `  bbkt pr list                    open pull requests in this repository
   bbkt pr list --reviewing        awaiting your review, across every repository
   bbkt pr view 42                 one pull request in detail
+  bbkt pr comment list 42         its comment threads, with the ids to reply to
   bbkt pr approve                 approve this branch's pull request
   bbkt pr merge 42 --yes          merge without the confirmation prompt`,
 })
@@ -40,6 +43,7 @@ one. view <id> is the exception, and needs the id.`,
 func init() {
 	prCmd.AddGroup(
 		&cobra.Group{ID: groupRead, Title: "Reading"},
+		&cobra.Group{ID: groupComment, Title: "Commenting"},
 		&cobra.Group{ID: groupAct, Title: "Acting"},
 	)
 	// The verbs sit in the order of the loop the root screen names: find one
@@ -48,6 +52,7 @@ func init() {
 		prListCmd,
 		prViewCmd,
 		prOpenCmd,
+		prCommentCmd,
 		prCreateCmd,
 		reviewCommand("approve", "Approve a pull request", "APPROVED"),
 		reviewCommand("unapprove", "Withdraw approval from a pull request", "UNAPPROVED"),

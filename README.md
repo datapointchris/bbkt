@@ -1,7 +1,8 @@
 # bbkt
 
 Pull requests on **self-hosted Bitbucket Data Center**, worked from the terminal. It shows what
-waits on your review and where your own pull requests stand. It creates, approves and merges them.
+waits on your review and where your own pull requests stand. It reads and writes their review
+comments, down to one line of the diff. It creates, approves and merges them.
 
 Bitbucket Cloud and Bitbucket Data Center are different products with incompatible APIs. Cloud is
 REST 2.0 at `api.bitbucket.org`. Data Center is REST 1.0 at `<your-host>/rest/api/1.0`. Every
@@ -57,7 +58,7 @@ when the token file is readable by other users.
 ## The grammar
 
 Commands take the shape `bbkt pr VERB [ID]`. The noun is always `pr`, so a create → review → merge
-loop changes only the verb.
+loop changes only the verb. Review comments sit one level down, as `bbkt pr comment VERB [ID]`.
 
 A verb whose usage shows `[id]` takes it optionally. Given, it targets that pull request. Omitted,
 it targets the open pull request whose source is the checked-out branch. `pr view` is the exception
@@ -72,9 +73,10 @@ git remote, `origin` unless `--remote` names another. These remote forms parse:
 
 `-R PROJECT/SLUG` targets another repository from anywhere.
 
-`pr list`, `pr view`, `pr create` and `config show` take `--json`. Progress and confirmations go to
-stderr, so stdout carries only the answer. `--no-input` never prompts, and fails naming the flag
-that would have answered. Any partial command run with no arguments prints what comes next.
+`pr list`, `pr view`, `pr create`, the three `pr comment` verbs and `config show` take `--json`.
+Progress and confirmations go to stderr, so stdout carries only the answer. `--no-input` never
+prompts, and fails naming the flag that would have answered. Any partial command run with no
+arguments prints what comes next.
 
 ## Which surface answers which question
 
@@ -85,6 +87,8 @@ that would have answered. Any partial command run with no arguments prints what 
 | What is open in this repository | `pr list` | the repository the git remote names |
 | What does this pull request say, and how do I diff it | `pr view <id>` | the pull request; the diff itself stays in git |
 | Where is it in the web view | `pr open` | the pull request's own link |
+| What have reviewers said, and on which lines | `pr comment list` | the pull request's activity stream, threads nested |
+| Say something on a line, a file or a thread | `pr comment create`, `pr comment reply` | the pull request's own diff, to place the comment |
 | Can it merge, and merge it | `pr merge` | Bitbucket's merge checks, then the pull request's version |
 | Which value is bbkt actually using | `config show` | `config.toml` and the `BBKT_*` environment |
 | Does the config reach Bitbucket | `config check` | the instance, signed in as you |
@@ -129,6 +133,42 @@ Always the `origin/` ref, never a bare `develop`. A pull request's target is usu
 branch you never check out. A bare name either fails to resolve or resolves to a local copy pinned
 at whenever you made it, which silently diffs against a stale target. `git fetch` keeps
 `origin/develop` current with no local branch and nothing to maintain.
+
+## `pr comment` — Bitbucket's own diff decides which side a line comment lands on
+
+```bash
+bbkt pr comment list 42                                              # every thread, with ids
+bbkt pr comment create 42 --path src/parser.go --line 40             # a line as the PR leaves it
+bbkt pr comment create 42 --path src/parser.go --line 37 --side old  # a removed line
+bbkt pr comment reply 42 --to 1001                                   # answer a thread
+```
+
+`list` reads the pull request's activity stream, where each comment arrives with its replies nested
+beneath it. Comments on the pull request itself come first, then file and line comments by path and
+line. The number beside each comment is its id, which `reply --to` takes. `--json` prints the
+threads as Bitbucket's own comment objects, anchors included.
+
+A line comment sits on one side of the diff. `new` is the file as the pull request leaves it, where
+an added line lives. `old` is the file before the pull request, where a removed line lives. An
+unchanged line is on both sides, and its number can differ between them. `--line` counts on the new
+side unless `--side old` says otherwise. On the new side, that is the number your editor shows on
+the pull request's branch.
+
+Bitbucket also needs to know whether the line was added, removed or unchanged. A wrong answer puts
+the comment somewhere other than the line meant, so bbkt never asks for it. It reads that file's
+diff from Bitbucket and takes the answer from there, and the comment lands where the web view draws
+the line. A line the diff does not show is refused, as is a path the pull request leaves alone.
+Both are refused before the editor opens.
+
+Without `--path`, the comment goes on the pull request itself. With `--path` and no `--line`, it
+goes on the file.
+
+The body comes from `--body-file FILE`, or `--body-file -` for stdin. Without either, on a
+terminal, `$VISUAL` or `$EDITOR` opens on a template, the way `git commit` does. The template quotes
+the line or comment being answered below git's scissors line, and everything from that line down
+is left out. An empty comment posts nothing. If Bitbucket refuses the post, what you wrote is kept
+in a file and the error names it. Off a terminal, or under `--no-input`, a missing `--body-file`
+exits 2 before anything is sent.
 
 ## `pr create` — the branch name becomes the title, and the Jira key survives it
 
@@ -206,7 +246,3 @@ There is deliberately no `--token` flag: a flag value lands in `ps` output and s
 
 `ca_file` is for an instance that terminates TLS with an internally issued certificate. That CA is
 added to the system pool for bbkt's requests. There is no option to skip verification.
-
-## Inline review comments are not implemented
-
-Reading them means recursing `/activities`. Writing them means constructing a nested `anchor`.

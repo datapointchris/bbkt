@@ -57,11 +57,13 @@ func TestAnUnknownVerbIsRefusedWhateverFollowsIt(t *testing.T) {
 func TestAPromptWithoutATerminalIsAUsageErrorBeforeAnyRequest(t *testing.T) {
 	t.Setenv("BBKT_URL", "http://127.0.0.1:9")
 	t.Setenv("BBKT_TOKEN", "unused")
-	t.Cleanup(func() { noInput, repoSpec = false, "" })
+	t.Cleanup(func() { noInput, repoSpec, replyCommentTo = false, "", 0 })
 	for _, tt := range []struct {
 		args []string
 		flag string
 	}{
+		{[]string{"pr", "comment", "create", "42", "--path", "README.md", "--line", "3"}, "--body-file"},
+		{[]string{"pr", "comment", "reply", "42", "--to", "1001"}, "--body-file"},
 		{[]string{"pr", "merge", "42"}, "--yes"},
 	} {
 		err := runLine(t, append(tt.args, "-R", "EX/demo", "--no-input")...)

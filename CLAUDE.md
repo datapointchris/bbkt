@@ -11,6 +11,13 @@ Cloud's REST 2.0. The two are incompatible and almost every example online is fo
 Cloud. When adding an endpoint, read the Data Center reference:
 <https://developer.atlassian.com/server/bitbucket/rest/>
 
+That reference's OpenAPI models an activity with only its base fields, so the
+`comment`, `commentAction` and `commentAnchor` a comment activity carries are
+absent from it, and it types an anchor's `path` as an object. The legacy 7.21
+reference prints real example payloads, a string `path` among them:
+<https://docs.atlassian.com/bitbucket-server/rest/7.21.0/bitbucket-rest.html>.
+`bitbucket.Path` decodes either form.
+
 ## Constraints that shaped the design
 
 - **No local repository registry.** Repo-scoped commands parse the git remote;
@@ -25,6 +32,16 @@ Cloud. When adding an endpoint, read the Data Center reference:
   usually a long-lived branch (`develop`/`uat`/`prod`) that is never checked out,
   so a bare `develop` either fails to resolve or resolves to a local copy pinned
   at whenever it was created — silently diffing against a stale target.
+  `pr comment create` reads one file's diff over the API to place a comment, and
+  never prints it.
+- **A comment's line type is read from Bitbucket's diff, never asked for.** An
+  anchor needs `lineType` (ADDED, REMOVED, CONTEXT) beside the line, and a wrong
+  one puts the comment somewhere other than the line meant. The user gives a
+  path, a line and a side; `ResolveAnchor` finds the rest in the pull request's
+  own effective diff, the one Bitbucket validates the anchor against. Rejected:
+  `--line-type`/`--file-type` flags, which hand the user a fact they can get
+  wrong, and the local `git diff`, which `-R` cannot reach and whose rename
+  detection need not match Bitbucket's.
 - **Merge reads the version first.** Bitbucket uses `version` for optimistic
   concurrency; a stale one must fail rather than merge commits the caller never
   saw. Never cache it across commands.
@@ -34,8 +51,8 @@ Cloud. When adding an endpoint, read the Data Center reference:
 
 ## Tested without an instance
 
-Development has no Data Center instance to reach, so nothing here runs against a
-real one. `bitbucket/client_test.go` drives an `httptest` server with realistic
+Development has no Data Center instance to reach, so no test runs against a real
+one. `bitbucket/client_test.go` drives an `httptest` server with realistic
 Data Center payloads instead, and that is where an endpoint's shape gets pinned.
 
 bbkt is installed with `go install …@latest`, which applies no ldflags, so
@@ -47,6 +64,18 @@ as on native Linux and macOS, which is why `pr open` tries `wslview` before
 
 - **Project/repository-scoped tokens cannot merge.** A merge creates a commit,
   which needs a real user identity. Only personal tokens work for `pr merge`.
+- **An anchor's FROM and TO run opposite to a pull request's fromRef and
+  toRef.** FROM is the file before the pull request, where a removed line lives;
+  TO is the file after it, which is the source branch's version. The CLI says
+  `old` and `new` so nobody has to hold that inversion.
+- **Every diff line carries a number on both sides.** An added line's `source`
+  is a position in the old file, not a line of it. Only CONTEXT segments and the
+  side's own segment type count when matching a line (`segmentOnSide`), and
+  `TestResolveAnchorReadsTheLineTypeFromTheDiff` uses a diff whose sides number
+  later lines differently so a swap fails it.
+- **The changes resource ignores `start`** and returns one page. Walking it with
+  `paged` would read that page forever, so `fileChange` makes one request at
+  `changesLimit`.
 - **Branch names containing underscores** break a Jira-key regex that ends in
   `\b` — `_` is a word character. `SplitIssueKey` relies on a greedy `\d+`
   instead; `TestSplitIssueKey` pins it.

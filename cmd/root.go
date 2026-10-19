@@ -34,7 +34,8 @@ repository you are standing in. A cross-repo row's id belongs to its REPO
 column, so follow it with -R: bbkt pr view 42 -R PROJ/service.
 
 Commands follow the shape: bbkt pr VERB [ID] — the noun is always "pr", so a
-create → review → merge loop changes only the verb.
+create → review → merge loop changes only the verb. Review comments sit one
+level down, as bbkt pr comment VERB [ID].
 
 One rule: an id in brackets is optional. Given, it targets that pull request;
 omitted, it targets the open pull request for the checked-out branch. view <id>
