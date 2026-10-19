@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/datapointchris/goclikit"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,11 @@ var prMergeCmd = &cobra.Command{
 		"  bbkt pr merge 42 --yes",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// A prompt on a closed stdin deadlocks the caller with no output and no
+		// exit code, so the missing --yes is refused before the first request.
+		if !mergeYes && (noInput || !isatty.IsTerminal(os.Stdin.Fd())) {
+			return goclikit.UsageError(fmt.Errorf("refusing to prompt without a terminal; pass --yes to merge"))
+		}
 		repo, err := resolveRepo()
 		if err != nil {
 			return err
@@ -83,13 +89,9 @@ var prMergeCmd = &cobra.Command{
 	},
 }
 
-// confirm prompts on a TTY and otherwise fails naming the flag that would have
-// answered, because a prompt on a closed stdin deadlocks the caller with no
-// output and no exit code.
+// confirm asks a y/N question on stderr. Its caller has already refused to get
+// here without a terminal.
 func confirm(cmd *cobra.Command, question string) (bool, error) {
-	if noInput || !isatty.IsTerminal(os.Stdin.Fd()) {
-		return false, fmt.Errorf("refusing to prompt without a terminal; pass --yes to merge")
-	}
 	writef(cmd.ErrOrStderr(), "%s [y/N] ", question)
 	answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {

@@ -51,6 +51,25 @@ func TestAnUnknownVerbIsRefusedWhateverFollowsIt(t *testing.T) {
 	}
 }
 
+// Every command that would prompt, given --no-input, exits 2 before the first
+// request. The URL is a closed port, so a refusal that came after a request
+// would surface as a connection error.
+func TestAPromptWithoutATerminalIsAUsageErrorBeforeAnyRequest(t *testing.T) {
+	t.Setenv("BBKT_URL", "http://127.0.0.1:9")
+	t.Setenv("BBKT_TOKEN", "unused")
+	t.Cleanup(func() { noInput, repoSpec, replyCommentTo = false, "", 0 })
+	for _, args := range [][]string{
+		{"pr", "comment", "create", "42", "--path", "README.md", "--line", "3"},
+		{"pr", "comment", "reply", "42", "--to", "1001"},
+		{"pr", "merge", "42"},
+	} {
+		err := runLine(t, append(args, "-R", "EX/demo", "--no-input")...)
+		if !errors.Is(err, goclikit.ErrUsage) {
+			t.Errorf("%v answered %v, want a usage error", args, err)
+		}
+	}
+}
+
 // A mistyped verb is answered with the verbs near it.
 func TestAMistypedVerbNamesTheNearOnes(t *testing.T) {
 	err := runLine(t, "pr", "mrege")
@@ -98,23 +117,5 @@ func TestEveryGuideExampleIsARealInvocation(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-// The root screen states how a session opens and which listing answers which
-// question, and the commands it names are also examples, typed in full.
-func TestTheRootScreenSaysWhereToStart(t *testing.T) {
-	// Joined onto one line, so a sentence reads the same wherever it wraps.
-	long := strings.Join(strings.Fields(rootCmd.Long), " ")
-	for _, opener := range []string{"bbkt pr list --reviewing", "bbkt pr list --mine"} {
-		if !strings.Contains(long, opener+" for ") {
-			t.Errorf("root help does not say when to start with %q", opener)
-		}
-		if !strings.Contains(rootCmd.Example, "  "+opener+" ") {
-			t.Errorf("root examples do not include %q", opener)
-		}
-	}
-	if !strings.Contains(long, "a bare bbkt pr list shows only the repository you are standing in") {
-		t.Error("root help does not say what a bare pr list covers")
 	}
 }

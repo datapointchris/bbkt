@@ -73,6 +73,17 @@ func CurrentBranch() (string, error) {
 	return out, nil
 }
 
+// WorkTreePrefix reports the current directory's path from the root of its git
+// work tree, ending in a slash. It is empty at the root and outside a
+// repository.
+func WorkTreePrefix() string {
+	out, err := git("rev-parse", "--show-prefix")
+	if err != nil {
+		return ""
+	}
+	return out
+}
+
 // No trailing \b: an underscore is a word character, so it would refuse to match
 // DATA-7 in DATA-7_null_handling. The greedy \d+ already stops the match at the
 // end of the number.

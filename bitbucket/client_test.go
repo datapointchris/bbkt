@@ -2,10 +2,13 @@ package bitbucket
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -371,6 +374,232 @@ func TestCreatePullRequestBuildsRefs(t *testing.T) {
 	}
 	if name := reviewers[0].(map[string]any)["user"].(map[string]any)["name"]; name != "gopal" {
 		t.Errorf("reviewer name = %v, want gopal", name)
+	}
+}
+
+// The activity stream mixes every action, carries one COMMENTED activity per
+// comment including each reply, and nests replies under the comment they answer.
+// Releases before 8 anchor a thread on the activity with a string path; the
+// current schema puts the anchor on the comment with a path object.
+func TestCommentThreadsAreReadFromTheActivityStream(t *testing.T) {
+	user := func(name string) map[string]any {
+		return map[string]any{"name": name, "displayName": name, "slug": name, "type": "NORMAL"}
+	}
+	reply := map[string]any{
+		"id": 1002, "version": 0, "text": "Fixed in the next push.", "author": user("chris"),
+		"createdDate": 1760000300000, "comments": []any{}, "severity": "NORMAL", "state": "OPEN",
+	}
+	lineThread := map[string]any{
+		"id": 1001, "version": 1, "text": "This misses the empty case.", "author": user("gopal"),
+		"createdDate": 1760000200000, "comments": []any{reply}, "severity": "NORMAL", "state": "OPEN",
+	}
+	general := map[string]any{
+		"id": 1003, "version": 0, "text": "Looks good overall.\n\nOne question below.", "author": user("gopal"),
+		"createdDate": 1760000400000, "comments": []any{}, "severity": "NORMAL", "state": "OPEN",
+	}
+	currentShape := map[string]any{
+		"id": 1004, "version": 0, "text": "Rename this.", "author": user("gopal"),
+		"createdDate": 1760000100000, "severity": "BLOCKER", "state": "OPEN", "threadResolved": true,
+		"anchor": map[string]any{
+			"path": map[string]any{"components": []string{"src", "parser.go"}, "name": "parser.go", "parent": "src"},
+			"line": 40, "lineType": "CONTEXT", "fileType": "FROM", "diffType": "EFFECTIVE",
+		},
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests/42/activities", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{
+			"size": 6, "limit": 25, "isLastPage": true, "start": 0,
+			"values": []map[string]any{
+				{"id": 6, "action": "COMMENTED", "commentAction": "ADDED", "user": user("gopal"), "comment": general},
+				{"id": 5, "action": "COMMENTED", "commentAction": "REPLIED", "user": user("chris"), "comment": reply},
+				{"id": 4, "action": "APPROVED", "user": user("gopal")},
+				{
+					"id": 3, "action": "COMMENTED", "commentAction": "ADDED", "user": user("gopal"), "comment": lineThread,
+					"commentAnchor": map[string]any{"line": 10, "lineType": "ADDED", "fileType": "TO", "path": "README.md", "srcPath": "README.md"},
+				},
+				{"id": 2, "action": "RESCOPED", "fromHash": "abc", "added": map[string]any{"commits": []any{}, "total": 0}},
+				{"id": 1, "action": "COMMENTED", "commentAction": "ADDED", "user": user("gopal"), "comment": currentShape},
+			},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	threads, err := client.ListCommentThreads(Repo{Project: "DATA", Slug: "pipeline"}, 42)
+	if err != nil {
+		t.Fatalf("ListCommentThreads: %v", err)
+	}
+
+	var ids []int
+	for _, thread := range threads {
+		ids = append(ids, thread.ID)
+	}
+	if fmt.Sprint(ids) != "[1003 1001 1004]" {
+		t.Fatalf("threads %v, want [1003 1001 1004]: the pull request's own first, then by path and line, and no reply as a thread", ids)
+	}
+	if len(threads[1].Comments) != 1 || threads[1].Comments[0].ID != 1002 {
+		t.Errorf("thread 1001 replies = %+v, want only 1002", threads[1].Comments)
+	}
+	if a := threads[1].Anchor; a == nil || a.Path != "README.md" || a.Line != 10 || a.LineType != "ADDED" || a.FileType != FileTo {
+		t.Errorf("thread 1001 anchor = %+v, want README.md:10 ADDED TO from the activity", a)
+	}
+	if a := threads[2].Anchor; a == nil || a.Path != "src/parser.go" || a.FileType != FileFrom {
+		t.Errorf("thread 1004 anchor = %+v, want src/parser.go on FROM from the comment's own path object", a)
+	}
+	if !threads[2].ThreadResolved || threads[2].Severity != "BLOCKER" {
+		t.Errorf("thread 1004 = %+v, want a resolved task", threads[2])
+	}
+
+	encoded, err := json.Marshal(threads)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(encoded), `"comments":null`) {
+		t.Errorf("a comment with no replies encoded its replies as null: %s", encoded)
+	}
+}
+
+// The line type and the numbering are read from the pull request's own diff.
+// The fixture replaces old line 10 with new lines 10 and 11, so the two sides
+// number every later line differently. Data Center also writes a positional
+// number on the other side of each added or removed line — the added lines
+// carry source 11 and 12 — which must never be read as a line of the old file.
+func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
+	pathObject := func(p string) map[string]any {
+		parts := strings.Split(p, "/")
+		return map[string]any{"components": parts, "name": parts[len(parts)-1], "toString": p}
+	}
+	diffLine := func(source, destination int, text string) map[string]any {
+		return map[string]any{"source": source, "destination": destination, "line": text, "truncated": false}
+	}
+	var diffQueries []string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests/42/changes", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{
+			"size": 2, "limit": 1000, "isLastPage": true, "start": 0,
+			"values": []map[string]any{
+				{"path": pathObject("README.md"), "type": "MODIFY", "nodeType": "FILE"},
+				{"path": pathObject("src/new.go"), "srcPath": pathObject("src/old.go"), "type": "MOVE", "nodeType": "FILE"},
+			},
+		})
+	})
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests/42/diff/{path...}", func(w http.ResponseWriter, r *http.Request) {
+		diffQueries = append(diffQueries, r.PathValue("path")+"?"+r.URL.Query().Get("srcPath"))
+		writeJSON(w, map[string]any{
+			"fromHash": "a0f224f", "toHash": "dc93f22", "contextLines": 3, "whitespace": "SHOW",
+			"diffs": []map[string]any{{
+				"source": pathObject("README.md"), "destination": pathObject("README.md"),
+				"hunks": []map[string]any{{
+					"sourceLine": 7, "sourceSpan": 7, "destinationLine": 7, "destinationSpan": 8,
+					"segments": []map[string]any{
+						{"type": "CONTEXT", "lines": []any{diffLine(7, 7, "seven"), diffLine(8, 8, "eight"), diffLine(9, 9, "nine")}},
+						{"type": "REMOVED", "lines": []any{diffLine(10, 10, "old ten")}},
+						{"type": "ADDED", "lines": []any{diffLine(11, 10, "new ten"), diffLine(12, 11, "new eleven")}},
+						{"type": "CONTEXT", "lines": []any{diffLine(11, 12, "eleven"), diffLine(12, 13, "twelve"), diffLine(13, 14, "thirteen")}},
+					},
+				}},
+			}},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	repo := Repo{Project: "DATA", Slug: "pipeline"}
+	for _, tt := range []struct {
+		line     int
+		fileType string
+		lineType string
+		text     string
+	}{
+		{10, FileTo, "ADDED", "new ten"},
+		{11, FileTo, "ADDED", "new eleven"},
+		{12, FileTo, "CONTEXT", "eleven"},
+		{10, FileFrom, "REMOVED", "old ten"},
+		{11, FileFrom, "CONTEXT", "eleven"},
+		{8, FileFrom, "CONTEXT", "eight"},
+	} {
+		anchor, text, err := client.ResolveAnchor(repo, 42, "README.md", tt.line, tt.fileType)
+		if err != nil {
+			t.Errorf("line %d on %s: %v", tt.line, tt.fileType, err)
+			continue
+		}
+		want := Anchor{Path: "README.md", Line: tt.line, LineType: tt.lineType, FileType: tt.fileType}
+		if *anchor != want || text != tt.text {
+			t.Errorf("line %d on %s = %+v %q, want %+v %q", tt.line, tt.fileType, *anchor, text, want, tt.text)
+		}
+	}
+
+	var notInDiff *LineNotInDiffError
+	if _, _, err := client.ResolveAnchor(repo, 42, "README.md", 40, FileTo); !errors.As(err, &notInDiff) {
+		t.Errorf("a line outside every hunk answered %v, want a LineNotInDiffError", err)
+	}
+
+	anchor, _, err := client.ResolveAnchor(repo, 42, "src/old.go", 0, FileTo)
+	if err != nil {
+		t.Fatalf("a moved file found by its old path: %v", err)
+	}
+	if *anchor != (Anchor{Path: "src/new.go", SrcPath: "src/old.go"}) {
+		t.Errorf("file anchor on a moved file = %+v, want path src/new.go and srcPath src/old.go", *anchor)
+	}
+	if _, _, err := client.ResolveAnchor(repo, 42, "src/new.go", 3, FileTo); !errors.As(err, &notInDiff) {
+		t.Fatalf("a line of a moved file: %v", err)
+	}
+	if last := diffQueries[len(diffQueries)-1]; last != "src/new.go?src/old.go" {
+		t.Errorf("diff of a moved file requested as %q, want its new path with srcPath set to the old one", last)
+	}
+
+	var notChanged *PathNotChangedError
+	_, _, err = client.ResolveAnchor(repo, 42, "docs/untouched.md", 0, FileTo)
+	if !errors.As(err, &notChanged) {
+		t.Fatalf("a path the pull request leaves alone answered %v, want a PathNotChangedError", err)
+	}
+	if want := []string{"README.md", "src/new.go"}; !slices.Equal(notChanged.Changed, want) {
+		t.Errorf("a path the pull request leaves alone carried %q, want the paths it changes, %q", notChanged.Changed, want)
+	}
+}
+
+// A line comment sends its anchor with a string path and no hashes, which Data
+// Center resolves to the effective diff. A reply sends only its parent's id.
+func TestCreateCommentSendsTheAnchorOrTheParent(t *testing.T) {
+	var bodies []map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/DATA/repos/pipeline/pull-requests/42/comments", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("method = %s, want POST", r.Method)
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		bodies = append(bodies, body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": 1005 + len(bodies), "version": 0, "text": body["text"],
+			"author": map[string]any{"name": "chris"}, "comments": []any{},
+		})
+	})
+
+	client, _ := newTestClient(t, mux)
+	repo := Repo{Project: "DATA", Slug: "pipeline"}
+	created, err := client.CreateComment(repo, 42, NewComment{
+		Text:   "Guard the empty case.",
+		Anchor: &Anchor{Path: "README.md", Line: 11, LineType: "ADDED", FileType: FileTo},
+	})
+	if err != nil {
+		t.Fatalf("CreateComment: %v", err)
+	}
+	if created.ID != 1006 {
+		t.Errorf("created id = %d, want 1006 from the response", created.ID)
+	}
+	if _, err := client.CreateComment(repo, 42, NewComment{Text: "Done.", Parent: 1001}); err != nil {
+		t.Fatalf("CreateComment reply: %v", err)
+	}
+
+	line, _ := json.Marshal(bodies[0])
+	if want := `{"anchor":{"fileType":"TO","line":11,"lineType":"ADDED","path":"README.md"},"text":"Guard the empty case."}`; string(line) != want {
+		t.Errorf("line comment body = %s, want %s", line, want)
+	}
+	reply, _ := json.Marshal(bodies[1])
+	if want := `{"parent":{"id":1001},"text":"Done."}`; string(reply) != want {
+		t.Errorf("reply body = %s, want %s", reply, want)
 	}
 }
 
