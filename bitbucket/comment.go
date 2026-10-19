@@ -273,12 +273,17 @@ func (e *PathNotChangedError) Error() string {
 	return fmt.Sprintf("#%d does not change %s", e.ID, e.Path)
 }
 
+// fileDiff is the part of a diff an anchor is read from. Bitbucket caps the
+// lines a diff streams, and marks each level it cut short as truncated.
 type fileDiff struct {
 	Diffs []struct {
-		Hunks []struct {
-			Segments []struct {
-				Type  string `json:"type"`
-				Lines []struct {
+		Truncated bool `json:"truncated"`
+		Hunks     []struct {
+			Truncated bool `json:"truncated"`
+			Segments  []struct {
+				Type      string `json:"type"`
+				Truncated bool   `json:"truncated"`
+				Lines     []struct {
 					Source      int    `json:"source"`
 					Destination int    `json:"destination"`
 					Line        string `json:"line"`
@@ -323,9 +328,13 @@ func (c *Client) ResolveAnchor(r Repo, id int, path string, line int, fileType s
 		return nil, "", err
 	}
 
+	truncated, last := false, 0
 	for _, d := range diff.Diffs {
+		truncated = truncated || d.Truncated
 		for _, hunk := range d.Hunks {
+			truncated = truncated || hunk.Truncated
 			for _, segment := range hunk.Segments {
+				truncated = truncated || segment.Truncated
 				if !segmentOnSide(segment.Type, fileType) {
 					continue
 				}
@@ -338,11 +347,15 @@ func (c *Client) ResolveAnchor(r Repo, id int, path string, line int, fileType s
 						anchor.Line, anchor.LineType, anchor.FileType = line, segment.Type, fileType
 						return anchor, l.Line, nil
 					}
+					last = max(last, number)
 				}
 			}
 		}
 	}
-	return nil, "", &LineNotInDiffError{Path: string(anchor.Path), Line: line, FileType: fileType}
+	return nil, "", &LineNotInDiffError{
+		Path: string(anchor.Path), Line: line, FileType: fileType,
+		Truncated: truncated && line > last,
+	}
 }
 
 // segmentOnSide reports whether a segment's lines exist in the file fileType
@@ -361,13 +374,19 @@ func segmentOnSide(segmentType, fileType string) bool {
 
 // LineNotInDiffError says a line is not one the pull request's diff shows on
 // the side asked for, which is the only place Bitbucket draws a line comment.
+// Truncated says the diff stopped at Bitbucket's cap before reaching the line,
+// so the line may be in the part it left out.
 type LineNotInDiffError struct {
-	Path     string
-	Line     int
-	FileType string
+	Path      string
+	Line      int
+	FileType  string
+	Truncated bool
 }
 
 func (e *LineNotInDiffError) Error() string {
+	if e.Truncated {
+		return fmt.Sprintf("the diff Bitbucket returns for %s stops before line %d on the %s side", e.Path, e.Line, e.FileType)
+	}
 	return fmt.Sprintf("line %d of %s is not in the pull request's diff on the %s side", e.Line, e.Path, e.FileType)
 }
 

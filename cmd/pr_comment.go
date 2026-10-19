@@ -239,7 +239,7 @@ var prCommentCreateCmd = &cobra.Command{
 			anchor, lineText, err = client.ResolveAnchor(repo, id, filePath, createCommentLine, fileType)
 			var notInDiff *bitbucket.LineNotInDiffError
 			if errors.As(err, &notInDiff) {
-				return lineNotInDiff(id, filePath, createCommentLine, createCommentSide)
+				return lineNotInDiff(id, filePath, createCommentSide, notInDiff)
 			}
 			var notChanged *bitbucket.PathNotChangedError
 			if errors.As(err, &notChanged) {
@@ -271,8 +271,18 @@ var prCommentCreateCmd = &cobra.Command{
 }
 
 // lineNotInDiff names the ways out of a line Bitbucket would not draw a
-// comment on: see the diff, try the other side, or comment on the file.
-func lineNotInDiff(id int, filePath string, line int, side string) error {
+// comment on: see the diff, try the other side, or comment on the file. A line
+// past where Bitbucket cut the diff short is on neither side, so the other
+// side is not offered.
+func lineNotInDiff(id int, filePath, side string, e *bitbucket.LineNotInDiffError) error {
+	line := e.Line
+	if e.Truncated {
+		return fmt.Errorf("the diff Bitbucket returns for %s in #%d stops before line %d on the %s side\n"+
+			"  Bitbucket caps the lines a diff returns, and this file's diff reaches the cap\n"+
+			"  Print the command that shows the diff: %s\n"+
+			"  Drop --line to comment on the whole file",
+			filePath, id, line, side, viewCommand(id))
+	}
 	otherSide := "A removed line is numbered on the old side: --side old"
 	if side == "old" {
 		otherSide = "An added line is numbered on the new side: drop --side old"
