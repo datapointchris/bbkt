@@ -20,7 +20,8 @@ func (r Repo) String() string { return r.Project + "/" + r.Slug }
 // Bitbucket Data Center serves HTTP clones under /scm/ and SSH on port 7999.
 // An instance serving SSH on port 22 hands out git's scp form instead,
 // host:PROJECT/slug, which carries no scheme and no port. git reads a remote as
-// that form when a colon comes before any slash, so its host takes neither.
+// that form when a colon comes before any slash, so its host contains neither a
+// colon nor a slash.
 // Personal forks use a ~username project key, which is a valid key and needs no
 // special handling beyond surviving the character class.
 var remotePatterns = []*regexp.Regexp{

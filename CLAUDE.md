@@ -1,9 +1,5 @@
 # bbkt — Bitbucket Data Center pull request CLI
 
-This file holds only what is specific to bbkt: the API it talks to, the constraints
-behind its design, how it is tested, its gotchas, and the commit-message marker
-that cuts a major.
-
 ## What this talks to
 
 **Bitbucket Data Center REST API 1.0** (`<host>/rest/api/1.0`), not Bitbucket
@@ -28,8 +24,8 @@ reference prints real example payloads, a string `path` among them:
   merge-base diff the web view renders. Fetching it over the API would be a worse
   copy of something git already does. Every hint bbkt prints uses
   **remote-tracking refs** on the remote `--remote` names, never the bare
-  `DisplayID`: a pull request's target is
-  usually a long-lived branch (`develop`/`uat`/`prod`) that is never checked out,
+  `DisplayID`: a pull request's target is usually a long-lived branch
+  (`develop`/`uat`/`prod`) that is never checked out,
   so a bare `develop` either fails to resolve or resolves to a local copy pinned
   at whenever it was created — silently diffing against a stale target.
   `pr comment create` reads one file's diff over the API to place a comment, and

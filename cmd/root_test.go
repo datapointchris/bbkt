@@ -30,8 +30,8 @@ func runLine(t *testing.T, args ...string) error {
 }
 
 // Cobra parses a group's flags and answers --help before it validates the
-// group's arguments, so a mistyped verb followed by either would be answered
-// as the flag, or with the group's help and exit 0.
+// group's arguments. Without the namespace check, `pr bogus --json` fails on
+// the unknown flag and `pr bogus --help` prints pr's help and exits 0.
 func TestAnUnknownVerbIsRefusedWhateverFollowsIt(t *testing.T) {
 	for _, args := range [][]string{
 		{"pr", "bogus"},
@@ -70,7 +70,6 @@ func TestAPromptWithoutATerminalIsAUsageErrorBeforeAnyRequest(t *testing.T) {
 	}
 }
 
-// A mistyped verb is answered with the verbs near it.
 func TestAMistypedVerbNamesTheNearOnes(t *testing.T) {
 	err := runLine(t, "pr", "mrege")
 	if err == nil || !strings.Contains(err.Error(), "\tmerge") {

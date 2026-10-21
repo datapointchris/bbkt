@@ -68,9 +68,9 @@ func Execute() {
 	}
 }
 
-// run drives root through goclikit's bootstrap and returns its error. Separate
-// from Execute, which exits, so a test can drive the real tree with the version
-// check suppressed and read the error.
+// run drives root through goclikit's bootstrap and returns its error. Execute
+// exits, so a test calls run instead, with the version check suppressed, to read
+// the error.
 func run(root *cobra.Command, config autoupdate.Config) error {
 	return goclikit.Execute(context.Background(), root, config, goclikit.WithNotFound(notFound))
 }

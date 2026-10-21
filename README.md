@@ -51,8 +51,8 @@ pass show work/bitbucket | bbkt config init --no-input
 Piped, the URL is written commented out. Set it afterwards with `bbkt config edit`, or supply it as
 `BBKT_URL`.
 
-`config check` is the only check that means anything. Whether the URL is reachable, the CA is right
-and the token is accepted are answered by the round trip, never by reading the file. It also warns
+`config check` answers whether the URL is reachable, the CA is right and the token is accepted by
+making a round trip to the server; reading the file cannot answer any of them. It also warns
 when the token file is readable by other users.
 
 ## The grammar

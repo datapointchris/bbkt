@@ -61,7 +61,7 @@ func init() {
 	rootCmd.Version = buildVersion()
 	rootCmd.SetVersionTemplate("bbkt {{.Version}}\n")
 
-	// Keeps -v free for --verbose, which is what -v means to curl, ssh and rsync.
+	// Keeps -v free: to curl, ssh and rsync it means verbose, never version.
 	rootCmd.InitDefaultVersionFlag()
 	if f := rootCmd.Flags().Lookup("version"); f != nil {
 		f.Shorthand = ""

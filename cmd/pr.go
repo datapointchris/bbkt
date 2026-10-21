@@ -14,8 +14,8 @@ const (
 	groupAct     = "act"
 )
 
-// A namespace: bare, it teaches the verbs rather than erroring on a missing
-// subcommand, and a word naming no verb exits 2 with the verbs near it.
+// Bare, `bbkt pr` prints its help. `bbkt pr bogus` exits 2 and names the
+// verbs nearest to it.
 var prCmd = goclikit.AsNamespace(&cobra.Command{
 	Use:     "pr",
 	GroupID: groupPullRequests,
