@@ -7,7 +7,7 @@ import (
 
 // Verb groups within `pr`: reading is safe and browsing-shaped, acting changes
 // state on the server. Separating them makes the destructive half visible.
-// Commenting holds the comment namespace, whose verbs do both.
+// Commenting holds the comment namespace, whose verbs both read and change state.
 const (
 	groupRead    = "read"
 	groupComment = "comment"

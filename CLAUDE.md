@@ -27,7 +27,7 @@ reference prints real example payloads, a string `path` among them:
   `DisplayID`: a pull request's target is usually a long-lived branch
   (`develop`/`uat`/`prod`) that is never checked out,
   so a bare `develop` either fails to resolve or resolves to a local copy pinned
-  at whenever it was created — silently diffing against a stale target.
+  at whenever it was created, and the diff then runs silently against a stale target.
   `pr comment create` reads one file's diff over the API to place a comment, and
   never prints it.
 - **A comment's line type is read from Bitbucket's diff, never asked for.** An
@@ -87,7 +87,7 @@ them unanchored against the raw message and ORs the result with the configured m
 `.semrelrc` cannot stop it and it majors even a `fix:` commit.
 
 The module path carries no `/vN` suffix, so once a major exists `go install …@latest` cannot see it
-and silently resolves the highest v1 instead — an installer comparing versions reports the tool
+and silently resolves the highest v1 instead. An installer comparing versions then reports the tool
 stale forever while installing nothing. Every already-installed binary is stranded too:
 `goselfupdate` refuses a lower version and reports "already up to date". Recovery is a reinstall on
 each machine, and it is not a rewrite — branch protection refuses one on `main`, and the offending

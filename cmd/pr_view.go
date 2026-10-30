@@ -76,9 +76,9 @@ var prViewCmd = &cobra.Command{
 		// locally without touching the API. Remote-tracking refs, not the bare branch names:
 		// the target of a pull request is usually a long-lived branch you never check out, so
 		// a bare `develop` either does not resolve or resolves to a local copy pinned at
-		// whenever you created it — silently diffing against a stale target. The refs are named
-		// for the remote the repository was read from, since --remote can name one other than
-		// origin.
+		// whenever you created it, and the diff then runs silently against a stale target. The
+		// refs are named for the remote the repository was read from, since --remote can name
+		// one other than origin.
 		writef(out, "\ndiff: git diff %[1]s/%[2]s...%[1]s/%[3]s\n", remoteName, pr.ToRef.DisplayID, pr.FromRef.DisplayID)
 		return nil
 	},

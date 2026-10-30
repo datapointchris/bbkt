@@ -462,8 +462,8 @@ func TestCommentThreadsAreReadFromTheActivityStream(t *testing.T) {
 // The line type and the numbering are read from the pull request's own diff.
 // The fixture replaces old line 10 with new lines 10 and 11, so the two sides
 // number every later line differently. Data Center also writes a positional
-// number on the other side of each added or removed line — the added lines
-// carry source 11 and 12 — which must never be read as a line of the old file.
+// number on the other side of each added or removed line, which must never be
+// read as a line of the old file. Here the added lines carry source 11 and 12.
 func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
 	pathObject := func(p string) map[string]any {
 		parts := strings.Split(p, "/")

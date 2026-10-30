@@ -1,6 +1,6 @@
 # bbkt
 
-Pull requests on **self-hosted Bitbucket Data Center**, worked from the terminal. It shows what
+bbkt works pull requests on **self-hosted Bitbucket Data Center** from the terminal. It shows what
 waits on your review and where your own pull requests stand. It reads and writes their review
 comments, down to one line of the diff. It creates, approves and merges them.
 
@@ -129,7 +129,7 @@ Three dots, not two. `origin/develop...HEAD` diffs from the **merge base**: what
 since it diverged. Two dots (`origin/develop..HEAD`) compares the tips. Every commit that landed on
 `develop` after you branched then shows up backwards, as if you had deleted it.
 
-Always the `origin/` ref, never a bare `develop`. A pull request's target is usually a long-lived
+Name the `origin/` ref, never a bare `develop`. A pull request's target is usually a long-lived
 branch you never check out. A bare name either fails to resolve or resolves to a local copy pinned
 at whenever you made it, which silently diffs against a stale target. `git fetch` keeps
 `origin/develop` current with no local branch and nothing to maintain.

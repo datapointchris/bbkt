@@ -301,7 +301,7 @@ type fileDiff struct {
 // somewhere other than the line meant. fileType chooses the numbering: FROM
 // counts lines in the file before the pull request, TO in the file after it.
 // Each diff line carries a number on both sides, and only the side whose file
-// holds the line counts — an added line's FROM number is a position, not a
+// holds the line counts. An added line's FROM number is a position, not a
 // line of the old file.
 func (c *Client) ResolveAnchor(r Repo, id int, path string, line int, fileType string) (*Anchor, string, error) {
 	if line != 0 && fileType != FileFrom && fileType != FileTo {
