@@ -10,6 +10,7 @@ import (
 	"github.com/datapointchris/goclikit"
 	"github.com/datapointchris/goselfupdate/autoupdate"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // runLine drives the real tree through run, the path the shipped binary takes,
@@ -63,6 +64,24 @@ func TestAPromptWithoutATerminalIsAUsageErrorBeforeAnyRequest(t *testing.T) {
 			t.Errorf("%v answered %v, want a usage error", args, err)
 		}
 	}
+}
+
+// The token comes only from BBKT_TOKEN or a token file. A flag value lands in
+// ps output and shell history, where anyone on the host can read it. Walking
+// the tree covers every command added later as well.
+func TestNoCommandTakesTheTokenAsAFlag(t *testing.T) {
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, set := range []*pflag.FlagSet{c.LocalFlags(), c.InheritedFlags()} {
+			if set.Lookup("token") != nil {
+				t.Errorf("%s takes --token", c.CommandPath())
+			}
+		}
+		for _, child := range c.Commands() {
+			walk(child)
+		}
+	}
+	walk(rootCmd)
 }
 
 func TestABareGroupShowsItsHelp(t *testing.T) {
