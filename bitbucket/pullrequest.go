@@ -9,12 +9,15 @@ import (
 	"time"
 )
 
+// User is a Bitbucket account. Name is the slug the API addresses it by.
 type User struct {
 	Name         string `json:"name"`
 	DisplayName  string `json:"displayName"`
 	EmailAddress string `json:"emailAddress"`
 }
 
+// Participant is a user's place on a pull request: author or reviewer, and the
+// review status they set.
 type Participant struct {
 	User     User   `json:"user"`
 	Role     string `json:"role"`
@@ -22,12 +25,15 @@ type Participant struct {
 	Status   string `json:"status"`
 }
 
+// Ref is one end of a pull request: a branch and the repository it lives in.
+// DisplayID is the bare branch name, ID the full refs/heads/ form.
 type Ref struct {
 	ID         string  `json:"id"`
 	DisplayID  string  `json:"displayId"`
 	Repository RepoRef `json:"repository"`
 }
 
+// RepoRef names a repository by its slug and its project's key.
 type RepoRef struct {
 	Slug    string `json:"slug"`
 	Project struct {
@@ -35,6 +41,8 @@ type RepoRef struct {
 	} `json:"project"`
 }
 
+// PullRequest is one pull request. Version is the counter a merge must echo
+// back; the dates are milliseconds since the Unix epoch.
 type PullRequest struct {
 	ID          int           `json:"id"`
 	Version     int           `json:"version"`
@@ -51,6 +59,7 @@ type PullRequest struct {
 	Links       Links         `json:"links"`
 }
 
+// Links holds a pull request's browser links; URL reads the first.
 type Links struct {
 	Self []struct {
 		Href string `json:"href"`
@@ -71,6 +80,7 @@ func (p PullRequest) Repo() Repo {
 	return Repo{Project: p.ToRef.Repository.Project.Key, Slug: p.ToRef.Repository.Slug}
 }
 
+// Updated reports when the pull request last changed.
 func (p PullRequest) Updated() time.Time {
 	return time.UnixMilli(p.UpdatedDate)
 }
@@ -167,6 +177,7 @@ func (c *Client) collectPullRequests(path string, q url.Values, limit *int) ([]P
 	return out, truncated, err
 }
 
+// GetPullRequest reads one pull request of r by its id.
 func (c *Client) GetPullRequest(r Repo, id int) (*PullRequest, error) {
 	var pr PullRequest
 	path := fmt.Sprintf("%s/%d", prPath(r), id)
@@ -176,6 +187,8 @@ func (c *Client) GetPullRequest(r Repo, id int) (*PullRequest, error) {
 	return &pr, nil
 }
 
+// CreateOptions is a new pull request: its text, its two branch names, and the
+// usernames asked to review it.
 type CreateOptions struct {
 	Title        string
 	Description  string
@@ -184,6 +197,8 @@ type CreateOptions struct {
 	Reviewers    []string
 }
 
+// CreatePullRequest opens a pull request in r from one of its branches to
+// another, and returns it as Bitbucket recorded it.
 func (c *Client) CreatePullRequest(r Repo, opts CreateOptions) (*PullRequest, error) {
 	type refBody struct {
 		ID         string  `json:"id"`
@@ -237,6 +252,8 @@ func (c *Client) Merge(r Repo, id int, version int) (*PullRequest, error) {
 	return &pr, nil
 }
 
+// MergeStatus is Bitbucket's answer to whether a pull request can merge now,
+// with each veto that stands in the way.
 type MergeStatus struct {
 	CanMerge   bool `json:"canMerge"`
 	Conflicted bool `json:"conflicted"`
@@ -246,6 +263,7 @@ type MergeStatus struct {
 	} `json:"vetoes"`
 }
 
+// CanMerge asks Bitbucket whether the pull request can merge, without merging it.
 func (c *Client) CanMerge(r Repo, id int) (*MergeStatus, error) {
 	var status MergeStatus
 	path := fmt.Sprintf("%s/%d/merge", prPath(r), id)

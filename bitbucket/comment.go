@@ -17,6 +17,7 @@ import (
 // string the comment endpoint takes.
 type Path string
 
+// UnmarshalJSON reads either form of a path, and null as the empty path.
 func (p *Path) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		*p = ""
@@ -77,6 +78,7 @@ type Comment struct {
 	Comments       []Comment `json:"comments"`
 }
 
+// Created reports when the comment was posted.
 func (c Comment) Created() time.Time { return time.UnixMilli(c.CreatedDate) }
 
 // commentActivity is the part of an activity a comment thread is read from.

@@ -1,3 +1,5 @@
+// Package bitbucket is a client for the pull request endpoints of Bitbucket
+// Data Center's REST API 1.0, and reads which repository a git checkout points at.
 package bitbucket
 
 import (
@@ -17,6 +19,8 @@ import (
 
 const apiBase = "/rest/api/1.0"
 
+// Client talks to one Bitbucket Data Center instance with one access token,
+// and remembers the username the instance reports for that token.
 type Client struct {
 	baseURL string
 	token   string
@@ -24,12 +28,16 @@ type Client struct {
 	user    string
 }
 
+// Options is what NewClient needs: the instance's base URL, the access token,
+// and optionally a PEM file of extra certificate authorities to trust.
 type Options struct {
 	BaseURL string
 	Token   string
 	CAFile  string
 }
 
+// NewClient builds a Client from opts, failing when the CA file cannot be read
+// or holds no certificate.
 func NewClient(opts Options) (*Client, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 
@@ -66,6 +74,7 @@ type APIError struct {
 	Message string
 }
 
+// Error names the status, the API path and Bitbucket's message when it sent one.
 func (e *APIError) Error() string {
 	if e.Message != "" {
 		return fmt.Sprintf("bitbucket %d on %s: %s", e.Status, e.Path, e.Message)

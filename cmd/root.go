@@ -1,3 +1,4 @@
+// Package cmd is bbkt's command tree: the pr and config nouns and their verbs.
 package cmd
 
 import (
@@ -54,6 +55,8 @@ what comes next.`,
 	SilenceUsage:  true,
 }
 
+// Execute runs the command line in os.Args and exits the process: 0 on
+// success, 2 on a usage error, 1 on any other failure.
 func Execute() {
 	if err := run(rootCmd, autoupdate.Config{Update: updateConfig()}); err != nil {
 		if !errors.Is(err, goclikit.ErrReported) {

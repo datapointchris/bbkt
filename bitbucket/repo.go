@@ -15,6 +15,7 @@ type Repo struct {
 	Slug    string
 }
 
+// String writes the repository as PROJECT/slug, the form ParseSpec reads.
 func (r Repo) String() string { return r.Project + "/" + r.Slug }
 
 // Bitbucket Data Center serves HTTP clones under /scm/ and SSH on port 7999.

@@ -1,3 +1,5 @@
+// Package config resolves bbkt's settings from its config file and environment
+// variables, and records which input supplied each one.
 package config
 
 import (
