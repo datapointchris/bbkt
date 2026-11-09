@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"github.com/datapointchris/bbkt/bitbucket"
 )
 
 var viewJSON bool
@@ -73,15 +75,24 @@ var prViewCmd = &cobra.Command{
 			writef(out, "\n%s\n", url)
 		}
 		// The merge-base diff is what Bitbucket's web view renders, and git produces it
-		// locally without touching the API. Remote-tracking refs, not the bare branch names:
-		// the target of a pull request is usually a long-lived branch you never check out, so
-		// a bare `develop` either does not resolve or resolves to a local copy pinned at
-		// whenever you created it, and the diff then runs silently against a stale target. The
-		// refs are named for the remote the repository was read from, since --remote can name
-		// one other than origin.
-		writef(out, "\ndiff: git diff %[1]s/%[2]s...%[1]s/%[3]s\n", remoteName, pr.ToRef.DisplayID, pr.FromRef.DisplayID)
+		// locally without touching the API.
+		target, source := diffRefs(remoteName, pr)
+		writef(out, "\ndiff: git diff %s...%s\n", target, source)
 		return nil
 	},
+}
+
+// diffRefs names the remote-tracking refs of a pull request's target and source
+// branches on remote, the pair `git diff target...source` takes.
+//
+// Remote-tracking refs, not the bare branch names: the target of a pull request
+// is usually a long-lived branch nobody checks out, so a bare `develop` either
+// does not resolve or resolves to a local copy pinned at whenever it was
+// created, and the diff then runs silently against a stale target. remote is
+// the one the repository was read from, since --remote can name one other than
+// origin.
+func diffRefs(remote string, pr *bitbucket.PullRequest) (target, source string) {
+	return remote + "/" + pr.ToRef.DisplayID, remote + "/" + pr.FromRef.DisplayID
 }
 
 func init() {
