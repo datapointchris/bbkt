@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
-	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -30,25 +29,15 @@ var prOpenCmd = &cobra.Command{
 			return err
 		}
 
-		var url string
-		if len(args) == 1 {
-			id, err := strconv.Atoi(args[0])
-			if err != nil {
-				return fmt.Errorf("pull request id must be a number, got %q", args[0])
-			}
-			pr, err := client.GetPullRequest(repo, id)
-			if err != nil {
-				return err
-			}
-			url = pr.URL()
-		} else {
-			pr, err := pullRequestForCurrentBranch(client, repo)
-			if err != nil {
-				return err
-			}
-			url = pr.URL()
+		id, err := resolvePullRequestID(client, repo, args)
+		if err != nil {
+			return err
 		}
-
+		pr, err := client.GetPullRequest(repo, id)
+		if err != nil {
+			return err
+		}
+		url := pr.URL()
 		if url == "" {
 			return fmt.Errorf("bitbucket returned no browser link for the pull request")
 		}
@@ -57,10 +46,9 @@ var prOpenCmd = &cobra.Command{
 			return nil
 		}
 		if err := browse(url); err != nil {
-			// Printing the URL keeps the command useful on a headless WSL box
-			// where no browser opener is installed.
-			outf(cmd, "%s", url)
-			return err
+			// The URL rides in the error, on stderr, so a box with no browser
+			// opener still hands it over while stdout stays empty on a failed run.
+			return fmt.Errorf("%w; open %s by hand, or pass --print", err, url)
 		}
 		return nil
 	},
