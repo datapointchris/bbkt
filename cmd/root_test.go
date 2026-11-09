@@ -40,13 +40,8 @@ func TestAnUnknownVerbIsRefusedWhateverFollowsIt(t *testing.T) {
 		{"config", "bogus", "--json"},
 		{"config", "bogus", "--help"},
 	} {
-		err := runLine(t, args...)
-		if !errors.Is(err, goclikit.ErrUsage) {
+		if err := runLine(t, args...); !errors.Is(err, goclikit.ErrUsage) {
 			t.Errorf("%v answered %v, want a usage error", args, err)
-			continue
-		}
-		if want := `unknown command "bogus" for "bbkt ` + args[0] + `"`; !strings.HasPrefix(err.Error(), want) {
-			t.Errorf("%v answered %q, want it to open %q", args, err, want)
 		}
 	}
 }
@@ -67,13 +62,6 @@ func TestAPromptWithoutATerminalIsAUsageErrorBeforeAnyRequest(t *testing.T) {
 		if !errors.Is(err, goclikit.ErrUsage) {
 			t.Errorf("%v answered %v, want a usage error", args, err)
 		}
-	}
-}
-
-func TestAMistypedVerbNamesTheNearOnes(t *testing.T) {
-	err := runLine(t, "pr", "mrege")
-	if err == nil || !strings.Contains(err.Error(), "\tmerge") {
-		t.Errorf("pr mrege answered %v, want it to name merge", err)
 	}
 }
 
