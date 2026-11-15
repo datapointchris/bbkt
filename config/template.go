@@ -17,8 +17,9 @@ token_file = %q
 const Example = `# bbkt reads this file from $XDG_CONFIG_HOME/bbkt/config.toml
 # (~/.config/bbkt/config.toml unless XDG_CONFIG_HOME says otherwise).
 #
-# Every field can be overridden per-invocation by the environment variable named
-# beside it. ` + "`bbkt config show`" + ` reports which input won for each one.
+# A field whose comment names an Override can be set per-invocation by that
+# environment variable instead. A field naming none comes from this file or its default.
+# ` + "`bbkt config show`" + ` reports which input won for each one.
 
 # The Bitbucket Data Center base URL: scheme and host only, no /rest path and no
 # trailing slash. Override: BBKT_URL
