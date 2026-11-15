@@ -18,6 +18,13 @@ var (
 	listMine      bool
 )
 
+// titleWidth is how much of a title a pr list row shows. A cross-repo row gives
+// repoColumnShare of it to the REPO column, so both tables stay the same width.
+const (
+	titleWidth      = 60
+	repoColumnShare = 10
+)
+
 var prListCmd = &cobra.Command{
 	Use:     "list",
 	GroupID: groupRead,
@@ -96,11 +103,11 @@ var prListCmd = &cobra.Command{
 			approvals := fmt.Sprintf("%d/%d", approved, total)
 			if crossRepo {
 				writef(table, "%d\t%s\t%s\t%s\t%s\t%s\n",
-					pr.ID, pr.Repo(), clip(pr.Title, 50), pr.Author.User.Name, approvals, pr.FromRef.DisplayID)
+					pr.ID, pr.Repo(), clip(pr.Title, titleWidth-repoColumnShare), pr.Author.User.Name, approvals, pr.FromRef.DisplayID)
 				continue
 			}
 			writef(table, "%d\t%s\t%s\t%s\t%s\n",
-				pr.ID, clip(pr.Title, 60), pr.Author.User.Name, approvals, pr.FromRef.DisplayID)
+				pr.ID, clip(pr.Title, titleWidth), pr.Author.User.Name, approvals, pr.FromRef.DisplayID)
 		}
 		if err := table.Flush(); err != nil {
 			return err
