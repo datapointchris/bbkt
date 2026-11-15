@@ -20,9 +20,9 @@ var configCmd = goclikit.AsNamespace(&cobra.Command{
 	Short:   "Set up and inspect bbkt's configuration",
 	Long: `The config file, the token it points at, and what they resolve to.
 
-bbkt reads one TOML file, and every field in it can be overridden by an
-environment variable — so the value a command used is not always the one written
-in the file. "config show" is the only place that reports which input won, and
+bbkt reads one TOML file. A field can be overridden by the environment variable
+"config example" names beside it, so the value a command used is not always the
+one written in the file. "config show" is the only place that reports which input won, and
 "config check" proves the result actually reaches Bitbucket.
 
 Starting from nothing: run "config init", then "config check".`,
