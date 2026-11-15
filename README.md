@@ -73,10 +73,12 @@ git remote, `origin` unless `--remote` names another. These remote forms parse:
 
 `-R PROJECT/SLUG` targets another repository from anywhere.
 
-`pr list`, `pr view`, `pr create`, the three `pr comment` verbs and `config show` take `--json`.
-Progress and confirmations go to stderr, so stdout carries only the answer. `--no-input` never
-prompts, and fails naming the flag that would have answered. Any partial command run with no
-arguments prints what comes next.
+Progress and confirmations go to stderr, so stdout carries only the answer, and a command's
+`--json` prints nothing else there. `--no-input` never prompts, and fails naming the flag that would
+have answered. Any partial command run with no arguments prints what comes next.
+
+`bbkt <command> --help` lists each command's flags and examples. The sections below say why each
+command works the way it does, and leave how to call it to the help.
 
 ## Which surface answers which question
 
@@ -94,13 +96,6 @@ arguments prints what comes next.
 | Does the config reach Bitbucket | `config check` | the instance, signed in as you |
 
 ## `pr list` — Bitbucket already knows what needs you, so nothing is kept locally
-
-```bash
-bbkt pr list --reviewing         # awaiting your review, across every repository
-bbkt pr list --mine              # authored by you, across every repository
-bbkt pr list                     # open pull requests in this clone's repository
-bbkt pr view 42 -R PROJ/service  # a cross-repo row, followed up with the REPO it named
-```
 
 `--reviewing` and `--mine` ask Bitbucket's own `/inbox/pull-requests` and
 `/dashboard/pull-requests` endpoints, which already cover every repository on the instance. Both
@@ -136,24 +131,16 @@ at whenever you made it, which silently diffs against a stale target. `git fetch
 
 ## `pr comment` — Bitbucket's own diff decides which side a line comment lands on
 
-```bash
-bbkt pr comment list 42                                              # every thread, with ids
-bbkt pr comment create 42 --path src/parser.go --line 40             # a line as the PR leaves it
-bbkt pr comment create 42 --path src/parser.go --line 37 --side old  # a removed line
-bbkt pr comment reply 42 --to 1001                                   # answer a thread
-```
-
 `list` reads the pull request's activity stream, where each comment arrives with its replies nested
 beneath it. Comments on the pull request itself come first, then file and line comments by path and
-line. The number beside each comment is its id, which `reply --to` takes. `--json` prints each
+line. `--json` prints each
 thread as a comment object holding its id, version, text, author, dates, severity, state and
 anchor, with its replies nested under `comments`.
 
 A line comment sits on one side of the diff. `new` is the file as the pull request leaves it, where
 an added line lives. `old` is the file before the pull request, where a removed line lives. An
-unchanged line is on both sides, and its number can differ between them. `--line` counts on the new
-side unless `--side old` says otherwise. On the new side, that is the number your editor shows on
-the pull request's branch.
+unchanged line is on both sides, and its number can differ between them. On the new side, a line's
+number is the one your editor shows on the pull request's branch.
 
 Bitbucket also needs to know whether the line was added, removed or unchanged. A wrong answer puts
 the comment somewhere other than the line meant, so bbkt never asks for it. It reads that file's
@@ -162,22 +149,14 @@ the line. A line the diff does not show is refused. A path the pull request leav
 with the paths it does change, counted like `--path` from the repository root. Both are refused
 before the editor opens.
 
-Without `--path`, the comment goes on the pull request itself. With `--path` and no `--line`, it
-goes on the file.
-
-The body comes from `--body TEXT`, `--body-file FILE`, or `--body-file -` for stdin. Without one,
-on a terminal, `$VISUAL` or `$EDITOR` opens on a template, the way `git commit` does. The template
+Without a body flag, on a terminal, `$VISUAL` or `$EDITOR` opens on a template, the way
+`git commit` does. The template
 quotes the line or comment being answered below git's scissors line, and everything from that line
 down is left out. An empty comment posts nothing. If Bitbucket refuses the post, what you wrote is
 kept in a file and the error names it. Off a terminal, or under `--no-input`, a missing body exits 2
 before anything is sent.
 
 ## `pr create` — the branch name becomes the title, and the Jira key survives it
-
-```bash
-bbkt pr create               # from the checked-out branch into default_target_branch
-bbkt pr create --target uat  # another target, for this pull request only
-```
 
 Bitbucket Data Center pushes branches, commits and pull requests to Jira. Jira links each one by
 finding a work item key in the branch name, a commit message or the pull request title. Without
@@ -191,21 +170,10 @@ Without `--target`, the pull request goes to `default_target_branch` from the co
 
 ## `pr approve`, `pr needs-work`, `pr unapprove` — one participant status, visible to everyone
 
-```bash
-bbkt pr approve        # the open pull request from the checked-out branch
-bbkt pr needs-work 42  # a specific one
-bbkt pr unapprove 42   # withdraw either verdict
-```
-
 Bitbucket records each of these as your participant status on the pull request. Each one replaces
 the status you set earlier, and everyone on the pull request sees it.
 
 ## `pr merge` — Bitbucket's veto first, the version read last
-
-```bash
-bbkt pr merge           # this branch's pull request, after a y/N prompt
-bbkt pr merge 42 --yes  # no prompt, which is what a script passes
-```
 
 Merge asks Bitbucket first whether the pull request can merge. Conflicts, unmet approval
 requirements and failed builds are refused with Bitbucket's own reasons, before anything is written.
@@ -219,12 +187,6 @@ before anything is asked of Bitbucket. It needs the personal token from the firs
 scoped token cannot create the merge commit.
 
 ## `config` — a value can come from two places, and `show` says which won
-
-```bash
-bbkt config show     # each setting, its value, and the input that supplied it
-bbkt config edit     # config.toml in $VISUAL or $EDITOR, created first if absent
-bbkt config example  # every option, annotated; reference rather than a scaffold
-```
 
 `BBKT_URL`, `BBKT_TOKEN_FILE` and `BBKT_CA_FILE` each override the file's field. `BBKT_TOKEN`
 supplies the token itself and wins over any token file. So the value in use is not always the one
