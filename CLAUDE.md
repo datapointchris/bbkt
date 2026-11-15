@@ -24,10 +24,7 @@ reference prints real example payloads, a string `path` among them:
   merge-base diff the web view renders. Fetching it over the API would be a worse
   copy of something git already does. Every hint bbkt prints uses
   **remote-tracking refs** on the remote `--remote` names, never the bare
-  `DisplayID`: a pull request's target is usually a long-lived branch
-  (`develop`/`uat`/`prod`) that is never checked out,
-  so a bare `develop` either fails to resolve or resolves to a local copy pinned
-  at whenever it was created, and the diff then runs silently against a stale target.
+  `DisplayID`. `diffRefs` in `cmd/pr_view.go` builds them and says why.
   `pr comment create` reads one file's diff over the API to place a comment, and
   never prints it.
 - **A comment's line type is read from Bitbucket's diff, never asked for.** An
