@@ -2,8 +2,14 @@ package cmd
 
 import (
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -82,6 +88,58 @@ func TestNoCommandTakesTheTokenAsAFlag(t *testing.T) {
 		}
 	}
 	walk(rootCmd)
+}
+
+// A hint an error prints breaks when a neighbor is renamed, and no test of the
+// failing command covers that. So every string literal in the source that
+// names a bbkt command is resolved against the real tree. Find stops at a group
+// when the next word is no verb of it, so a group with words left over is a
+// verb that does not exist. Where a sentence names the tool rather than a
+// command, the word after bbkt is one prose holds, and the match is skipped.
+func TestEveryCommandTheSourceNamesExists(t *testing.T) {
+	prose := map[string]bool{
+		"cannot": true, "drives": true, "has": true, "itself": true,
+		"keeps": true, "reads": true, "resolved": true,
+	}
+	invocation := regexp.MustCompile(`\bbbkt((?: [a-z][a-z-]*)+)`)
+	fset := token.NewFileSet()
+	for _, dir := range []string{".", "../config"} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range entries {
+			name := entry.Name()
+			if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ast.Inspect(file, func(n ast.Node) bool {
+				lit, ok := n.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					return true
+				}
+				text, err := strconv.Unquote(lit.Value)
+				if err != nil {
+					t.Fatalf("%s: %v", fset.Position(lit.Pos()), err)
+				}
+				for _, match := range invocation.FindAllStringSubmatch(text, -1) {
+					words := strings.Fields(match[1])
+					if prose[words[0]] {
+						continue
+					}
+					found, rest, err := rootCmd.Find(words)
+					if err != nil || found == rootCmd || (len(rest) > 0 && found.HasSubCommands()) {
+						t.Errorf("%s names %q, which is no bbkt command", fset.Position(lit.Pos()), "bbkt"+match[1])
+					}
+				}
+				return true
+			})
+		}
+	}
 }
 
 func TestABareGroupShowsItsHelp(t *testing.T) {
