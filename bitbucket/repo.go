@@ -1,6 +1,7 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -54,8 +55,8 @@ func ParseSpec(spec string) (Repo, error) {
 
 // CurrentRepo resolves the repository from the git remote in the working
 // directory.
-func CurrentRepo(remoteName string) (Repo, error) {
-	out, err := git("remote", "get-url", remoteName)
+func CurrentRepo(ctx context.Context, remoteName string) (Repo, error) {
+	out, err := git(ctx, "remote", "get-url", remoteName)
 	if err != nil {
 		return Repo{}, fmt.Errorf("no git remote %q in the current directory", remoteName)
 	}
@@ -64,8 +65,8 @@ func CurrentRepo(remoteName string) (Repo, error) {
 
 // CurrentBranch reports the checked-out branch, erroring on a detached HEAD
 // rather than returning the literal "HEAD" as a branch name.
-func CurrentBranch() (string, error) {
-	out, err := git("rev-parse", "--abbrev-ref", "HEAD")
+func CurrentBranch(ctx context.Context) (string, error) {
+	out, err := git(ctx, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return "", fmt.Errorf("not a git repository")
 	}
@@ -78,8 +79,8 @@ func CurrentBranch() (string, error) {
 // WorkTreePrefix reports the current directory's path from the root of its git
 // work tree, ending in a slash. It is empty at the root and outside a
 // repository.
-func WorkTreePrefix() string {
-	out, err := git("rev-parse", "--show-prefix")
+func WorkTreePrefix(ctx context.Context) string {
+	out, err := git(ctx, "rev-parse", "--show-prefix")
 	if err != nil {
 		return ""
 	}
@@ -104,8 +105,8 @@ func SplitIssueKey(name string) (key, rest string) {
 	return strings.ToUpper(name[loc[0]:loc[1]]), name[loc[1]:]
 }
 
-func git(args ...string) (string, error) {
-	out, err := exec.Command("git", args...).Output()
+func git(ctx context.Context, args ...string) (string, error) {
+	out, err := exec.CommandContext(ctx, "git", args...).Output()
 	if err != nil {
 		return "", err
 	}

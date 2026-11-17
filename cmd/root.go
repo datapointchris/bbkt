@@ -124,9 +124,9 @@ func newClientFrom(cfg *config.Config, token config.Token) (*bitbucket.Client, e
 }
 
 // resolveRepo prefers an explicit --repo, falling back to the git remote.
-func resolveRepo() (bitbucket.Repo, error) {
+func resolveRepo(ctx context.Context) (bitbucket.Repo, error) {
 	if repoSpec != "" {
 		return bitbucket.ParseSpec(repoSpec)
 	}
-	return bitbucket.CurrentRepo(remoteName)
+	return bitbucket.CurrentRepo(ctx, remoteName)
 }

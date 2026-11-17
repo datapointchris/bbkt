@@ -1,6 +1,7 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -117,7 +118,7 @@ type ListOptions struct {
 
 // ListPullRequests returns pull requests for one repository, and reports
 // whether opts.Limit left rows behind.
-func (c *Client) ListPullRequests(r Repo, opts ListOptions) ([]PullRequest, bool, error) {
+func (c *Client) ListPullRequests(ctx context.Context, r Repo, opts ListOptions) ([]PullRequest, bool, error) {
 	q := url.Values{}
 	if opts.State != "" {
 		q.Set("state", opts.State)
@@ -125,7 +126,7 @@ func (c *Client) ListPullRequests(r Repo, opts ListOptions) ([]PullRequest, bool
 	if opts.Role != "" {
 		q.Set("role", opts.Role)
 	}
-	return c.collectPullRequests(prPath(r), q, opts.Limit)
+	return c.collectPullRequests(ctx, prPath(r), q, opts.Limit)
 }
 
 // ListInbox returns pull requests across every repository where the
@@ -133,15 +134,15 @@ func (c *Client) ListPullRequests(r Repo, opts ListOptions) ([]PullRequest, bool
 // Bitbucket answers this server-side, so no local repository registry is needed.
 //
 // A nil limit returns every row; a limit of zero returns none.
-func (c *Client) ListInbox(limit *int) ([]PullRequest, bool, error) {
-	return c.collectPullRequests("/inbox/pull-requests", url.Values{}, limit)
+func (c *Client) ListInbox(ctx context.Context, limit *int) ([]PullRequest, bool, error) {
+	return c.collectPullRequests(ctx, "/inbox/pull-requests", url.Values{}, limit)
 }
 
 // ListDashboard returns pull requests across every repository the authenticated
 // user authored or reviews, and reports whether limit left rows behind.
 //
 // A nil limit returns every row; a limit of zero returns none.
-func (c *Client) ListDashboard(state string, role string, limit *int) ([]PullRequest, bool, error) {
+func (c *Client) ListDashboard(ctx context.Context, state string, role string, limit *int) ([]PullRequest, bool, error) {
 	q := url.Values{}
 	if state != "" {
 		q.Set("state", state)
@@ -149,7 +150,7 @@ func (c *Client) ListDashboard(state string, role string, limit *int) ([]PullReq
 	if role != "" {
 		q.Set("role", role)
 	}
-	return c.collectPullRequests("/dashboard/pull-requests", q, limit)
+	return c.collectPullRequests(ctx, "/dashboard/pull-requests", q, limit)
 }
 
 // collectPullRequests decodes each page into one slice, stopping at the limit.
@@ -157,9 +158,9 @@ func (c *Client) ListDashboard(state string, role string, limit *int) ([]PullReq
 // The slice starts empty rather than nil, because a nil one marshals to JSON's
 // null and a caller's `jq '.[]'` cannot iterate that. A list read answers with a
 // list whether or not it found anything.
-func (c *Client) collectPullRequests(path string, q url.Values, limit *int) ([]PullRequest, bool, error) {
+func (c *Client) collectPullRequests(ctx context.Context, path string, q url.Values, limit *int) ([]PullRequest, bool, error) {
 	out := []PullRequest{}
-	truncated, err := c.paged(path, q, limit, func(raw json.RawMessage) (int, int, error) {
+	truncated, err := c.paged(ctx, path, q, limit, func(raw json.RawMessage) (int, int, error) {
 		var batch []PullRequest
 		if err := json.Unmarshal(raw, &batch); err != nil {
 			return 0, 0, err
@@ -178,10 +179,10 @@ func (c *Client) collectPullRequests(path string, q url.Values, limit *int) ([]P
 }
 
 // GetPullRequest reads one pull request of r by its id.
-func (c *Client) GetPullRequest(r Repo, id int) (*PullRequest, error) {
+func (c *Client) GetPullRequest(ctx context.Context, r Repo, id int) (*PullRequest, error) {
 	var pr PullRequest
 	path := fmt.Sprintf("%s/%d", prPath(r), id)
-	if err := c.do(http.MethodGet, path, nil, nil, &pr); err != nil {
+	if err := c.do(ctx, http.MethodGet, path, nil, nil, &pr); err != nil {
 		return nil, err
 	}
 	return &pr, nil
@@ -199,7 +200,7 @@ type CreateOptions struct {
 
 // CreatePullRequest opens a pull request in r from one of its branches to
 // another, and returns it as Bitbucket recorded it.
-func (c *Client) CreatePullRequest(r Repo, opts CreateOptions) (*PullRequest, error) {
+func (c *Client) CreatePullRequest(ctx context.Context, r Repo, opts CreateOptions) (*PullRequest, error) {
 	type refBody struct {
 		ID         string  `json:"id"`
 		Repository RepoRef `json:"repository"`
@@ -221,7 +222,7 @@ func (c *Client) CreatePullRequest(r Repo, opts CreateOptions) (*PullRequest, er
 	}
 
 	var pr PullRequest
-	if err := c.do(http.MethodPost, prPath(r), nil, body, &pr); err != nil {
+	if err := c.do(ctx, http.MethodPost, prPath(r), nil, body, &pr); err != nil {
 		return nil, err
 	}
 	return &pr, nil
@@ -230,23 +231,23 @@ func (c *Client) CreatePullRequest(r Repo, opts CreateOptions) (*PullRequest, er
 // SetReviewStatus sets the authenticated user's participant status. The older
 // POST .../approve endpoint is deprecated in favor of this one, which also
 // expresses UNAPPROVED and NEEDS_WORK.
-func (c *Client) SetReviewStatus(r Repo, id int, status string) error {
-	user, err := c.Whoami()
+func (c *Client) SetReviewStatus(ctx context.Context, r Repo, id int, status string) error {
+	user, err := c.Whoami(ctx)
 	if err != nil {
 		return err
 	}
 	path := fmt.Sprintf("%s/%d/participants/%s", prPath(r), id, user)
-	return c.do(http.MethodPut, path, nil, map[string]string{"status": status}, nil)
+	return c.do(ctx, http.MethodPut, path, nil, map[string]string{"status": status}, nil)
 }
 
 // Merge merges a pull request. Bitbucket uses the version for optimistic
 // concurrency: passing a stale one fails rather than merging changes the caller
 // never saw, so it is always read immediately beforehand.
-func (c *Client) Merge(r Repo, id int, version int) (*PullRequest, error) {
+func (c *Client) Merge(ctx context.Context, r Repo, id int, version int) (*PullRequest, error) {
 	q := url.Values{"version": []string{strconv.Itoa(version)}}
 	path := fmt.Sprintf("%s/%d/merge", prPath(r), id)
 	var pr PullRequest
-	if err := c.do(http.MethodPost, path, q, nil, &pr); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, q, nil, &pr); err != nil {
 		return nil, err
 	}
 	return &pr, nil
@@ -264,10 +265,10 @@ type MergeStatus struct {
 }
 
 // CanMerge asks Bitbucket whether the pull request can merge, without merging it.
-func (c *Client) CanMerge(r Repo, id int) (*MergeStatus, error) {
+func (c *Client) CanMerge(ctx context.Context, r Repo, id int) (*MergeStatus, error) {
 	var status MergeStatus
 	path := fmt.Sprintf("%s/%d/merge", prPath(r), id)
-	if err := c.do(http.MethodGet, path, nil, nil, &status); err != nil {
+	if err := c.do(ctx, http.MethodGet, path, nil, nil, &status); err != nil {
 		return nil, err
 	}
 	return &status, nil

@@ -389,7 +389,7 @@ func runConfigEdit(cmd *cobra.Command, args []string) error {
 	} else if err != nil {
 		return err
 	}
-	return runEditor(editor, tty, config.Path())
+	return runEditor(cmd.Context(), editor, tty, config.Path())
 }
 
 func runConfigCheck(cmd *cobra.Command, args []string) error {
@@ -416,7 +416,7 @@ func runConfigCheck(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	user, err := client.Whoami()
+	user, err := client.Whoami(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("reaching %s: %w", cfg.URL, err)
 	}

@@ -25,12 +25,13 @@ var prMergeCmd = &cobra.Command{
 		"  bbkt pr merge 42 --yes",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		// A prompt on a closed stdin deadlocks the caller with no output and no
 		// exit code, so the missing --yes is refused before the first request.
 		if !mergeYes && (noInput || !isatty.IsTerminal(os.Stdin.Fd())) {
 			return goclikit.UsageError(fmt.Errorf("refusing to prompt without a terminal; pass --yes to merge"))
 		}
-		repo, err := resolveRepo()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
@@ -38,12 +39,12 @@ var prMergeCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		id, err := resolvePullRequestID(client, repo, args)
+		id, err := resolvePullRequestID(ctx, client, repo, args)
 		if err != nil {
 			return err
 		}
 
-		status, err := client.CanMerge(repo, id)
+		status, err := client.CanMerge(ctx, repo, id)
 		if err != nil {
 			return err
 		}
@@ -64,7 +65,7 @@ var prMergeCmd = &cobra.Command{
 		// The version is read immediately before the merge: Bitbucket uses it for
 		// optimistic concurrency, so a stale one fails rather than merging commits
 		// that landed since the pull request was last read.
-		pr, err := client.GetPullRequest(repo, id)
+		pr, err := client.GetPullRequest(ctx, repo, id)
 		if err != nil {
 			return err
 		}
@@ -80,7 +81,7 @@ var prMergeCmd = &cobra.Command{
 			}
 		}
 
-		merged, err := client.Merge(repo, id, pr.Version)
+		merged, err := client.Merge(ctx, repo, id, pr.Version)
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -22,7 +23,8 @@ func reviewCommand(use, short, status string) *cobra.Command {
 			fmt.Sprintf("  bbkt pr %s 42     a specific pull request", use),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo, err := resolveRepo()
+			ctx := cmd.Context()
+			repo, err := resolveRepo(ctx)
 			if err != nil {
 				return err
 			}
@@ -31,11 +33,11 @@ func reviewCommand(use, short, status string) *cobra.Command {
 				return err
 			}
 
-			id, err := resolvePullRequestID(client, repo, args)
+			id, err := resolvePullRequestID(ctx, client, repo, args)
 			if err != nil {
 				return err
 			}
-			if err := client.SetReviewStatus(repo, id, status); err != nil {
+			if err := client.SetReviewStatus(ctx, repo, id, status); err != nil {
 				return err
 			}
 			infof(cmd, "#%d marked %s", id, status)
@@ -46,7 +48,7 @@ func reviewCommand(use, short, status string) *cobra.Command {
 
 // resolvePullRequestID takes an explicit id when given and otherwise finds the
 // open pull request for the checked-out branch.
-func resolvePullRequestID(client *bitbucket.Client, repo bitbucket.Repo, args []string) (int, error) {
+func resolvePullRequestID(ctx context.Context, client *bitbucket.Client, repo bitbucket.Repo, args []string) (int, error) {
 	if len(args) == 1 {
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -54,22 +56,22 @@ func resolvePullRequestID(client *bitbucket.Client, repo bitbucket.Repo, args []
 		}
 		return id, nil
 	}
-	pr, err := pullRequestForCurrentBranch(client, repo)
+	pr, err := pullRequestForCurrentBranch(ctx, client, repo)
 	if err != nil {
 		return 0, err
 	}
 	return pr.ID, nil
 }
 
-func pullRequestForCurrentBranch(client *bitbucket.Client, repo bitbucket.Repo) (*bitbucket.PullRequest, error) {
-	branch, err := bitbucket.CurrentBranch()
+func pullRequestForCurrentBranch(ctx context.Context, client *bitbucket.Client, repo bitbucket.Repo) (*bitbucket.PullRequest, error) {
+	branch, err := bitbucket.CurrentBranch(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// Every open pull request, because the one for this branch could be any of
 	// them and no row count would reliably reach it. That is what an unset
 	// Limit asks for; truncation cannot happen, so the flag is discarded.
-	prs, _, err := client.ListPullRequests(repo, bitbucket.ListOptions{State: "OPEN"})
+	prs, _, err := client.ListPullRequests(ctx, repo, bitbucket.ListOptions{State: "OPEN"})
 	if err != nil {
 		return nil, err
 	}

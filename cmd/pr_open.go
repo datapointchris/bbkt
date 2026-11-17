@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -20,7 +21,8 @@ var prOpenCmd = &cobra.Command{
 		"  bbkt pr open --print",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		repo, err := resolveRepo()
+		ctx := cmd.Context()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
@@ -29,11 +31,11 @@ var prOpenCmd = &cobra.Command{
 			return err
 		}
 
-		id, err := resolvePullRequestID(client, repo, args)
+		id, err := resolvePullRequestID(ctx, client, repo, args)
 		if err != nil {
 			return err
 		}
-		pr, err := client.GetPullRequest(repo, id)
+		pr, err := client.GetPullRequest(ctx, repo, id)
 		if err != nil {
 			return err
 		}
@@ -45,7 +47,7 @@ var prOpenCmd = &cobra.Command{
 			outf(cmd, "%s", url)
 			return nil
 		}
-		if err := browse(url); err != nil {
+		if err := browse(ctx, url); err != nil {
 			// The URL rides in the error, on stderr, so a box with no browser
 			// opener still hands it over while stdout stays empty on a failed run.
 			return fmt.Errorf("%w; open %s by hand, or pass --print", err, url)
@@ -54,7 +56,7 @@ var prOpenCmd = &cobra.Command{
 	},
 }
 
-func browse(url string) error {
+func browse(ctx context.Context, url string) error {
 	var candidates [][]string
 	switch runtime.GOOS {
 	case "darwin":
@@ -70,7 +72,8 @@ func browse(url string) error {
 		if _, err := exec.LookPath(c[0]); err != nil {
 			continue
 		}
-		return exec.Command(c[0], c[1:]...).Start()
+		// The opener hands the URL over and may still be running when bbkt exits.
+		return exec.CommandContext(context.WithoutCancel(ctx), c[0], c[1:]...).Start()
 	}
 	return fmt.Errorf("no browser opener found (tried %s)", candidateNames(candidates))
 }

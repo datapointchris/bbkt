@@ -4,6 +4,7 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -90,7 +91,7 @@ func (e *APIError) Error() string {
 // first is established — see the hints in cmd/notfound.go.
 func (e *APIError) NotFound() bool { return e.Status == http.StatusNotFound }
 
-func (c *Client) do(method, path string, query url.Values, body, out any) error {
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
 	full := c.baseURL + apiBase + path
 	if len(query) > 0 {
 		full += "?" + query.Encode()
@@ -105,7 +106,7 @@ func (c *Client) do(method, path string, query url.Values, body, out any) error 
 		reader = bytes.NewReader(encoded)
 	}
 
-	req, err := http.NewRequest(method, full, reader)
+	req, err := http.NewRequestWithContext(ctx, method, full, reader)
 	if err != nil {
 		return err
 	}
@@ -179,6 +180,7 @@ type page struct {
 // collect reports how many rows the page held and how many it kept, which are
 // different on the page the limit lands in the middle of.
 func (c *Client) paged(
+	ctx context.Context,
 	path string,
 	query url.Values,
 	limit *int,
@@ -202,7 +204,7 @@ func (c *Client) paged(
 		query.Set("limit", strconv.Itoa(pageSize))
 
 		var p page
-		if err := c.do(http.MethodGet, path, query, nil, &p); err != nil {
+		if err := c.do(ctx, http.MethodGet, path, query, nil, &p); err != nil {
 			return false, err
 		}
 		held, kept, err := collect(p.Values)
@@ -225,12 +227,12 @@ func (c *Client) paged(
 
 // Whoami returns the authenticated username, issuing a cheap request if no
 // response has populated it yet.
-func (c *Client) Whoami() (string, error) {
+func (c *Client) Whoami(ctx context.Context) (string, error) {
 	if c.user != "" {
 		return c.user, nil
 	}
 	q := url.Values{"limit": []string{"1"}}
-	if err := c.do(http.MethodGet, "/inbox/pull-requests", q, nil, nil); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/inbox/pull-requests", q, nil, nil); err != nil {
 		return "", err
 	}
 	if c.user == "" {

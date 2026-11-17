@@ -38,6 +38,7 @@ var prListCmd = &cobra.Command{
 		"  bbkt pr list -R PROJ/service --json",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		if listReviewing && listMine {
 			return goclikit.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
 		}
@@ -67,16 +68,16 @@ var prListCmd = &cobra.Command{
 		crossRepo := listReviewing || listMine
 		switch {
 		case listReviewing:
-			prs, truncated, err = client.ListInbox(&listLimit)
+			prs, truncated, err = client.ListInbox(ctx, &listLimit)
 		case listMine:
-			prs, truncated, err = client.ListDashboard(listState, "AUTHOR", &listLimit)
+			prs, truncated, err = client.ListDashboard(ctx, listState, "AUTHOR", &listLimit)
 		default:
 			var repo bitbucket.Repo
-			repo, err = resolveRepo()
+			repo, err = resolveRepo(ctx)
 			if err != nil {
 				return err
 			}
-			prs, truncated, err = client.ListPullRequests(repo,
+			prs, truncated, err = client.ListPullRequests(ctx, repo,
 				bitbucket.ListOptions{State: listState, Limit: &listLimit})
 		}
 		if err != nil {

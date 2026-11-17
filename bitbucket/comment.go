@@ -1,6 +1,7 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -104,10 +105,10 @@ type commentActivity struct {
 // ones put it on the comment as well, so the comment's own wins when present.
 // A comment's newest activity, which is the one kept, can be an edit carrying
 // no anchor, so a thread without one takes it from an older activity.
-func (c *Client) ListCommentThreads(r Repo, id int) ([]Comment, error) {
+func (c *Client) ListCommentThreads(ctx context.Context, r Repo, id int) ([]Comment, error) {
 	var candidates []Comment
 	path := fmt.Sprintf("%s/%d/activities", prPath(r), id)
-	_, err := c.paged(path, nil, nil, func(raw json.RawMessage) (int, int, error) {
+	_, err := c.paged(ctx, path, nil, nil, func(raw json.RawMessage) (int, int, error) {
 		var batch []commentActivity
 		if err := json.Unmarshal(raw, &batch); err != nil {
 			return 0, 0, err
@@ -187,10 +188,10 @@ func readsBefore(a, b Comment) bool {
 }
 
 // GetComment returns one comment and its replies.
-func (c *Client) GetComment(r Repo, id, commentID int) (*Comment, error) {
+func (c *Client) GetComment(ctx context.Context, r Repo, id, commentID int) (*Comment, error) {
 	var comment Comment
 	path := fmt.Sprintf("%s/%d/comments/%d", prPath(r), id, commentID)
-	if err := c.do(http.MethodGet, path, nil, nil, &comment); err != nil {
+	if err := c.do(ctx, http.MethodGet, path, nil, nil, &comment); err != nil {
 		return nil, err
 	}
 	return &comment, nil
@@ -208,7 +209,7 @@ type NewComment struct {
 // CreateComment posts a comment. No diffType and no hashes go with an anchor,
 // which Data Center resolves to the pull request's effective diff: the one its
 // web view shows.
-func (c *Client) CreateComment(r Repo, id int, comment NewComment) (*Comment, error) {
+func (c *Client) CreateComment(ctx context.Context, r Repo, id int, comment NewComment) (*Comment, error) {
 	body := map[string]any{"text": comment.Text}
 	if comment.Anchor != nil {
 		body["anchor"] = comment.Anchor
@@ -218,7 +219,7 @@ func (c *Client) CreateComment(r Repo, id int, comment NewComment) (*Comment, er
 	}
 	var created Comment
 	path := fmt.Sprintf("%s/%d/comments", prPath(r), id)
-	if err := c.do(http.MethodPost, path, nil, body, &created); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, nil, body, &created); err != nil {
 		return nil, err
 	}
 	return &created, nil
@@ -237,10 +238,10 @@ const changesLimit = 1000
 
 // fileChange finds the change a pull request makes to path, matching either
 // its current path or, for a move or copy, the one it had before.
-func (c *Client) fileChange(r Repo, id int, path string) (*change, error) {
+func (c *Client) fileChange(ctx context.Context, r Repo, id int, path string) (*change, error) {
 	var p page
 	q := url.Values{"limit": []string{strconv.Itoa(changesLimit)}, "withComments": []string{"false"}}
-	if err := c.do(http.MethodGet, fmt.Sprintf("%s/%d/changes", prPath(r), id), q, nil, &p); err != nil {
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("%s/%d/changes", prPath(r), id), q, nil, &p); err != nil {
 		return nil, err
 	}
 	var changes []change
@@ -305,11 +306,11 @@ type fileDiff struct {
 // Each diff line carries a number on both sides, and only the side whose file
 // holds the line counts. An added line's FROM number is a position, not a
 // line of the old file.
-func (c *Client) ResolveAnchor(r Repo, id int, path string, line int, fileType string) (*Anchor, string, error) {
+func (c *Client) ResolveAnchor(ctx context.Context, r Repo, id int, path string, line int, fileType string) (*Anchor, string, error) {
 	if line != 0 && fileType != FileFrom && fileType != FileTo {
 		return nil, "", fmt.Errorf("fileType %q is neither %s nor %s", fileType, FileFrom, FileTo)
 	}
-	changed, err := c.fileChange(r, id, path)
+	changed, err := c.fileChange(ctx, r, id, path)
 	if err != nil {
 		return nil, "", err
 	}
@@ -326,7 +327,7 @@ func (c *Client) ResolveAnchor(r Repo, id int, path string, line int, fileType s
 		q.Set("srcPath", string(anchor.SrcPath))
 	}
 	var diff fileDiff
-	if err := c.do(http.MethodGet, fmt.Sprintf("%s/%d/diff/%s", prPath(r), id, escapePath(string(anchor.Path))), q, nil, &diff); err != nil {
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("%s/%d/diff/%s", prPath(r), id, escapePath(string(anchor.Path))), q, nil, &diff); err != nil {
 		return nil, "", err
 	}
 

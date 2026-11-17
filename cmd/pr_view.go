@@ -23,12 +23,13 @@ var prViewCmd = &cobra.Command{
 		"  bbkt pr view 42 --json",
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
 			return fmt.Errorf("pull request id must be a number, got %q", args[0])
 		}
 
-		repo, err := resolveRepo()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
@@ -36,7 +37,7 @@ var prViewCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pr, err := client.GetPullRequest(repo, id)
+		pr, err := client.GetPullRequest(ctx, repo, id)
 		if err != nil {
 			return err
 		}

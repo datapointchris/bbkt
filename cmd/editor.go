@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -39,8 +40,8 @@ func openTerminal() (*os.File, error) {
 // runEditor opens path in the editor in the foreground, on tty. A terminal
 // editor blocks until it closes; a GUI editor returns at once unless told to
 // wait.
-func runEditor(editor []string, tty *os.File, path string) error {
-	editing := exec.Command(editor[0], append(editor[1:], path)...)
+func runEditor(ctx context.Context, editor []string, tty *os.File, path string) error {
+	editing := exec.CommandContext(ctx, editor[0], append(editor[1:], path)...)
 	editing.Stdin, editing.Stdout, editing.Stderr = tty, tty, tty
 	return editing.Run()
 }

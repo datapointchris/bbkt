@@ -35,18 +35,19 @@ var prCreateCmd = &cobra.Command{
 		"  bbkt pr create --body-file notes.md --target develop",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		if createBody != "" && createBodyFile != "" {
 			return goclikit.UsageError(fmt.Errorf("--body and --body-file are mutually exclusive"))
 		}
 
-		repo, err := resolveRepo()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
 
 		source := createSource
 		if source == "" {
-			source, err = bitbucket.CurrentBranch()
+			source, err = bitbucket.CurrentBranch(ctx)
 			if err != nil {
 				return err
 			}
@@ -82,7 +83,7 @@ var prCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pr, err := client.CreatePullRequest(repo, bitbucket.CreateOptions{
+		pr, err := client.CreatePullRequest(ctx, repo, bitbucket.CreateOptions{
 			Title:        title,
 			Description:  body,
 			SourceBranch: source,

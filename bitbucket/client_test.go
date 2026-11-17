@@ -54,7 +54,7 @@ func TestListPullRequestsPaginates(t *testing.T) {
 
 	// No limit at all, which is what every caller that leaves the field out of
 	// the literal asks for. The walk stops on isLastPage and both pages run.
-	prs, truncated, err := client.ListPullRequests(repo, ListOptions{State: "OPEN"})
+	prs, truncated, err := client.ListPullRequests(t.Context(), repo, ListOptions{State: "OPEN"})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestAnOmittedLimitReturnsEveryRow(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{State: "OPEN"})
+	prs, _, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{State: "OPEN"})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestListPullRequestsRespectsLimit(t *testing.T) {
 
 	client, _ := newTestClient(t, mux)
 	two := 2
-	prs, truncated, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &two})
+	prs, truncated, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &two})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestALimitEqualToTheRowCountLeavesNothingBehind(t *testing.T) {
 
 	client, _ := newTestClient(t, mux)
 	three := 3
-	prs, truncated, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &three})
+	prs, truncated, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &three})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestALimitInsideTheLastPageLeavesRowsBehind(t *testing.T) {
 
 	client, _ := newTestClient(t, mux)
 	two := 2
-	prs, truncated, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &two})
+	prs, truncated, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &two})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestAnEmptyListingMarshalsToAnEmptyArray(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{State: "OPEN"})
+	prs, _, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{State: "OPEN"})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestACapOfZeroIssuesNoRequest(t *testing.T) {
 
 	client, _ := newTestClient(t, mux)
 	zero := 0
-	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &zero})
+	prs, _, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &zero})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestANegativeCapCollectsNothing(t *testing.T) {
 
 	client, _ := newTestClient(t, mux)
 	negative := -1
-	prs, _, err := client.ListPullRequests(Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &negative})
+	prs, _, err := client.ListPullRequests(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, ListOptions{Limit: &negative})
 	if err != nil {
 		t.Fatalf("ListPullRequests: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestMergeSendsCurrentVersion(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	if _, err := client.Merge(Repo{Project: "DATA", Slug: "pipeline"}, 42, 7); err != nil {
+	if _, err := client.Merge(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, 42, 7); err != nil {
 		t.Fatalf("Merge: %v", err)
 	}
 	if mergedVersion != "7" {
@@ -300,7 +300,7 @@ func TestSetReviewStatusUsesAuthenticatedUser(t *testing.T) {
 		})
 
 	client, _ := newTestClient(t, mux)
-	if err := client.SetReviewStatus(Repo{Project: "DATA", Slug: "pipeline"}, 42, "APPROVED"); err != nil {
+	if err := client.SetReviewStatus(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, 42, "APPROVED"); err != nil {
 		t.Fatalf("SetReviewStatus: %v", err)
 	}
 	if gotPath == "" {
@@ -321,7 +321,7 @@ func TestAPIErrorSurfacesBitbucketMessage(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	_, err := client.GetPullRequest(Repo{Project: "DATA", Slug: "pipeline"}, 9)
+	_, err := client.GetPullRequest(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, 9)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -346,7 +346,7 @@ func TestCreatePullRequestBuildsRefs(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	_, err := client.CreatePullRequest(Repo{Project: "DATA", Slug: "pipeline"}, CreateOptions{
+	_, err := client.CreatePullRequest(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, CreateOptions{
 		Title:        "PROJ-1 do the thing",
 		SourceBranch: "feature/PROJ-1",
 		TargetBranch: "main",
@@ -425,7 +425,7 @@ func TestCommentThreadsAreReadFromTheActivityStream(t *testing.T) {
 	})
 
 	client, _ := newTestClient(t, mux)
-	threads, err := client.ListCommentThreads(Repo{Project: "DATA", Slug: "pipeline"}, 42)
+	threads, err := client.ListCommentThreads(t.Context(), Repo{Project: "DATA", Slug: "pipeline"}, 42)
 	if err != nil {
 		t.Fatalf("ListCommentThreads: %v", err)
 	}
@@ -517,7 +517,7 @@ func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
 		{11, FileFrom, "CONTEXT", "eleven"},
 		{8, FileFrom, "CONTEXT", "eight"},
 	} {
-		anchor, text, err := client.ResolveAnchor(repo, 42, "README.md", tt.line, tt.fileType)
+		anchor, text, err := client.ResolveAnchor(t.Context(), repo, 42, "README.md", tt.line, tt.fileType)
 		if err != nil {
 			t.Errorf("line %d on %s: %v", tt.line, tt.fileType, err)
 			continue
@@ -529,18 +529,18 @@ func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
 	}
 
 	var notInDiff *LineNotInDiffError
-	if _, _, err := client.ResolveAnchor(repo, 42, "README.md", 40, FileTo); !errors.As(err, &notInDiff) {
+	if _, _, err := client.ResolveAnchor(t.Context(), repo, 42, "README.md", 40, FileTo); !errors.As(err, &notInDiff) {
 		t.Errorf("a line outside every hunk answered %v, want a LineNotInDiffError", err)
 	}
 
-	anchor, _, err := client.ResolveAnchor(repo, 42, "src/old.go", 0, FileTo)
+	anchor, _, err := client.ResolveAnchor(t.Context(), repo, 42, "src/old.go", 0, FileTo)
 	if err != nil {
 		t.Fatalf("a moved file found by its old path: %v", err)
 	}
 	if *anchor != (Anchor{Path: "src/new.go", SrcPath: "src/old.go"}) {
 		t.Errorf("file anchor on a moved file = %+v, want path src/new.go and srcPath src/old.go", *anchor)
 	}
-	if _, _, err := client.ResolveAnchor(repo, 42, "src/new.go", 3, FileTo); !errors.As(err, &notInDiff) {
+	if _, _, err := client.ResolveAnchor(t.Context(), repo, 42, "src/new.go", 3, FileTo); !errors.As(err, &notInDiff) {
 		t.Fatalf("a line of a moved file: %v", err)
 	}
 	if last := diffQueries[len(diffQueries)-1]; last != "src/new.go?src/old.go" {
@@ -548,7 +548,7 @@ func TestResolveAnchorReadsTheLineTypeFromTheDiff(t *testing.T) {
 	}
 
 	var notChanged *PathNotChangedError
-	_, _, err = client.ResolveAnchor(repo, 42, "docs/untouched.md", 0, FileTo)
+	_, _, err = client.ResolveAnchor(t.Context(), repo, 42, "docs/untouched.md", 0, FileTo)
 	if !errors.As(err, &notChanged) {
 		t.Fatalf("a path the pull request leaves alone answered %v, want a PathNotChangedError", err)
 	}
@@ -579,7 +579,7 @@ func TestCreateCommentSendsTheAnchorOrTheParent(t *testing.T) {
 
 	client, _ := newTestClient(t, mux)
 	repo := Repo{Project: "DATA", Slug: "pipeline"}
-	created, err := client.CreateComment(repo, 42, NewComment{
+	created, err := client.CreateComment(t.Context(), repo, 42, NewComment{
 		Text:   "Guard the empty case.",
 		Anchor: &Anchor{Path: "README.md", Line: 11, LineType: "ADDED", FileType: FileTo},
 	})
@@ -589,7 +589,7 @@ func TestCreateCommentSendsTheAnchorOrTheParent(t *testing.T) {
 	if created.ID != 1006 {
 		t.Errorf("created id = %d, want 1006 from the response", created.ID)
 	}
-	if _, err := client.CreateComment(repo, 42, NewComment{Text: "Done.", Parent: 1001}); err != nil {
+	if _, err := client.CreateComment(t.Context(), repo, 42, NewComment{Text: "Done.", Parent: 1001}); err != nil {
 		t.Fatalf("CreateComment reply: %v", err)
 	}
 

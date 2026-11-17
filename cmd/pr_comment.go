@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -70,7 +71,8 @@ var prCommentListCmd = &cobra.Command{
 		"  bbkt pr comment list 42 --json",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		repo, err := resolveRepo()
+		ctx := cmd.Context()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
@@ -78,11 +80,11 @@ var prCommentListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		id, err := resolvePullRequestID(client, repo, args)
+		id, err := resolvePullRequestID(ctx, client, repo, args)
 		if err != nil {
 			return err
 		}
-		threads, err := client.ListCommentThreads(repo, id)
+		threads, err := client.ListCommentThreads(ctx, repo, id)
 		if err != nil {
 			return err
 		}
@@ -197,6 +199,7 @@ var prCommentCreateCmd = &cobra.Command{
 		"  bbkt pr comment create --path README.md --body-file notes.md",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		hasLine := cmd.Flags().Changed("line")
 		switch {
 		case cmd.Flags().Changed("path") && createCommentPath == "":
@@ -218,7 +221,7 @@ var prCommentCreateCmd = &cobra.Command{
 		}
 		defer body.close()
 
-		repo, err := resolveRepo()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
@@ -226,7 +229,7 @@ var prCommentCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		id, err := resolvePullRequestID(client, repo, args)
+		id, err := resolvePullRequestID(ctx, client, repo, args)
 		if err != nil {
 			return err
 		}
@@ -236,14 +239,14 @@ var prCommentCreateCmd = &cobra.Command{
 		if createCommentPath != "" {
 			filePath := path.Clean(createCommentPath)
 			var lineText string
-			anchor, lineText, err = client.ResolveAnchor(repo, id, filePath, createCommentLine, fileType)
+			anchor, lineText, err = client.ResolveAnchor(ctx, repo, id, filePath, createCommentLine, fileType)
 			var notInDiff *bitbucket.LineNotInDiffError
 			if errors.As(err, &notInDiff) {
 				return lineNotInDiff(id, filePath, createCommentSide, notInDiff)
 			}
 			var notChanged *bitbucket.PathNotChangedError
 			if errors.As(err, &notChanged) {
-				return pathNotChanged(notChanged)
+				return pathNotChanged(ctx, notChanged)
 			}
 			if err != nil {
 				return err
@@ -302,11 +305,11 @@ const maxListedChanges = 10
 // pathNotChanged lists the paths a pull request does change, so a --path that
 // missed shows what it should have been. A path typed from a subdirectory is
 // the likeliest miss, since --path counts from the repository root.
-func pathNotChanged(e *bitbucket.PathNotChangedError) error {
+func pathNotChanged(ctx context.Context, e *bitbucket.PathNotChangedError) error {
 	lines := []string{e.Error()}
 	prefix := ""
 	if repoSpec == "" {
-		prefix = bitbucket.WorkTreePrefix()
+		prefix = bitbucket.WorkTreePrefix(ctx)
 	}
 	if prefix != "" {
 		lines = append(lines, fmt.Sprintf("--path counts from the repository root, not from %s", prefix))
@@ -368,6 +371,7 @@ var prCommentReplyCmd = &cobra.Command{
 		"  bbkt pr comment reply --to 1001 --body-file -",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
 		if replyCommentTo < 1 {
 			return goclikit.UsageError(fmt.Errorf("--to takes the id of the comment to answer; bbkt pr comment list prints each one"))
 		}
@@ -377,7 +381,7 @@ var prCommentReplyCmd = &cobra.Command{
 		}
 		defer body.close()
 
-		repo, err := resolveRepo()
+		repo, err := resolveRepo(ctx)
 		if err != nil {
 			return err
 		}
@@ -385,11 +389,11 @@ var prCommentReplyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		id, err := resolvePullRequestID(client, repo, args)
+		id, err := resolvePullRequestID(ctx, client, repo, args)
 		if err != nil {
 			return err
 		}
-		parent, err := client.GetComment(repo, id, replyCommentTo)
+		parent, err := client.GetComment(ctx, repo, id, replyCommentTo)
 		if err != nil {
 			return err
 		}
@@ -495,7 +499,7 @@ const scissors = "# ------------------------ >8 ------------------------"
 // composeInEditor opens a template in the editor and returns the comment and
 // the file it was written in, which the caller removes once the comment is
 // posted and keeps when it is not.
-func composeInEditor(editor []string, tty *os.File, about []string) (text, file string, err error) {
+func composeInEditor(ctx context.Context, editor []string, tty *os.File, about []string) (text, file string, err error) {
 	f, err := os.CreateTemp("", "bbkt-comment-*.md")
 	if err != nil {
 		return "", "", err
@@ -519,7 +523,7 @@ func composeInEditor(editor []string, tty *os.File, about []string) (text, file 
 		return "", "", err
 	}
 
-	if err := runEditor(editor, tty, file); err != nil {
+	if err := runEditor(ctx, editor, tty, file); err != nil {
 		_ = os.Remove(file)
 		return "", "", fmt.Errorf("the editor exited with an error, so nothing was posted: %w", err)
 	}
@@ -550,17 +554,18 @@ func postComment(
 	comment bitbucket.NewComment,
 	posted func(*bitbucket.Comment) string,
 ) error {
+	ctx := cmd.Context()
 	comment.Text = body.text
 	file := ""
 	if body.editor != nil {
 		var err error
-		comment.Text, file, err = composeInEditor(body.editor, body.tty, about)
+		comment.Text, file, err = composeInEditor(ctx, body.editor, body.tty, about)
 		if err != nil {
 			return err
 		}
 	}
 
-	created, err := client.CreateComment(repo, id, comment)
+	created, err := client.CreateComment(ctx, repo, id, comment)
 	if err != nil {
 		if file != "" {
 			if writeErr := os.WriteFile(file, []byte(comment.Text+"\n"), 0o600); writeErr == nil {
