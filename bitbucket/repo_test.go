@@ -1,6 +1,92 @@
 package bitbucket
 
-import "testing"
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// The parsers above are pure, so they say nothing about what git prints for the
+// arguments git() hands it. This drives the wrapper against a real repository
+// the test creates, with the machine's git config shut out so a user's settings
+// cannot change what git answers.
+func TestTheGitWrapperReadsARealRepository(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	// A git hook running this suite exports GIT_DIR and its siblings, which would
+	// point every git call below at the repository being committed to. git names
+	// those variables itself.
+	localVars, err := exec.CommandContext(t.Context(), "git", "rev-parse", "--local-env-vars").Output()
+	if err != nil {
+		t.Fatalf("git rev-parse --local-env-vars: %v", err)
+	}
+	for _, name := range strings.Fields(string(localVars)) {
+		t.Setenv(name, "")
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	for _, name := range []string{"GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"} {
+		t.Setenv(name, "bbkt test")
+	}
+	for _, name := range []string{"GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL"} {
+		t.Setenv(name, "test@example.com")
+	}
+
+	root := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.CommandContext(t.Context(), "git", args...)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("init", "-q", "-b", "main")
+	run("remote", "add", "origin", "ssh://git@bitbucket.corp.example:7999/DATA/pipeline.git")
+	run("commit", "-q", "--allow-empty", "-m", "first")
+	run("switch", "-q", "-c", "DATA-7_null_handling")
+
+	sub := filepath.Join(root, "src", "etl")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(sub)
+	ctx := t.Context()
+
+	repo, err := CurrentRepo(ctx, "origin")
+	if err != nil {
+		t.Fatalf("CurrentRepo: %v", err)
+	}
+	if want := (Repo{Project: "DATA", Slug: "pipeline"}); repo != want {
+		t.Errorf("CurrentRepo = %v, want %v", repo, want)
+	}
+	if _, err := CurrentRepo(ctx, "upstream"); err == nil {
+		t.Error("CurrentRepo found a remote the repository does not have")
+	}
+
+	branch, err := CurrentBranch(ctx)
+	if err != nil {
+		t.Fatalf("CurrentBranch: %v", err)
+	}
+	if branch != "DATA-7_null_handling" {
+		t.Errorf("CurrentBranch = %q", branch)
+	}
+
+	if prefix := WorkTreePrefix(ctx); prefix != "src/etl/" {
+		t.Errorf("WorkTreePrefix = %q, want %q", prefix, "src/etl/")
+	}
+
+	run("switch", "-q", "--detach")
+	if branch, err := CurrentBranch(ctx); err == nil {
+		t.Errorf("CurrentBranch on a detached HEAD = %q, want an error", branch)
+	}
+}
 
 func TestParseRemote(t *testing.T) {
 	tests := []struct {
