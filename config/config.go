@@ -46,9 +46,11 @@ func (c *Config) Settings() []Setting {
 	}
 }
 
-// Sources records which input supplied each field. Five inputs — the file and
-// four environment variables — collapse into one value with no trace of which
-// won, and that is the question `bbkt config show` exists to answer.
+// Sources records which input supplied each field: config.toml, the field's
+// environment variable, its built-in default, or nothing. The resolved value
+// keeps no trace of which won, and that is the question `bbkt config show`
+// exists to answer. BBKT_TOKEN supplies the token itself rather than a field,
+// so Token reports its source and no field here does.
 type Sources struct {
 	URL                 string
 	TokenFile           string
