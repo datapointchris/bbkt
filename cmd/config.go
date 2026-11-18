@@ -305,11 +305,10 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	_, statErr := os.Stat(config.Path())
 	exists := statErr == nil
 
-	settings := []settingReport{
-		{"url", cfg.URL, cfg.Sources.URL},
-		{"token_file", cfg.TokenFile, cfg.Sources.TokenFile},
-		{"default_target_branch", cfg.DefaultTargetBranch, cfg.Sources.DefaultTargetBranch},
-		{"ca_file", cfg.CAFile, cfg.Sources.CAFile},
+	declared := cfg.Settings()
+	settings := make([]settingReport, 0, len(declared))
+	for _, setting := range declared {
+		settings = append(settings, settingReport{setting.Key, *setting.Value, *setting.Source})
 	}
 
 	token := tokenReport{Found: true}

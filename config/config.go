@@ -13,14 +13,37 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config is the on-disk shape of ~/.config/bbkt/config.toml.
+// Config holds the resolved settings. Settings names the config.toml key and
+// environment variable behind each field.
 type Config struct {
-	URL                 string `toml:"url"`
-	TokenFile           string `toml:"token_file"`
-	DefaultTargetBranch string `toml:"default_target_branch"`
-	CAFile              string `toml:"ca_file"`
+	URL                 string
+	TokenFile           string
+	DefaultTargetBranch string
+	CAFile              string
 
-	Sources Sources `toml:"-"`
+	Sources Sources
+}
+
+// Setting is one config.toml key, the environment variable that overrides it,
+// and the Config fields its value and the input that supplied it land in.
+type Setting struct {
+	Key     string
+	Env     string // empty where no environment variable overrides the key
+	Default string // empty where the setting has no built-in default
+	Value   *string
+	Source  *string
+}
+
+// Settings is the one list of bbkt's settings, in the order `config show`
+// reports them. Resolve reads the file and the environment through it, so a new
+// setting is a Config field, a Sources field and a row here.
+func (c *Config) Settings() []Setting {
+	return []Setting{
+		{Key: "url", Env: "BBKT_URL", Value: &c.URL, Source: &c.Sources.URL},
+		{Key: "token_file", Env: "BBKT_TOKEN_FILE", Value: &c.TokenFile, Source: &c.Sources.TokenFile},
+		{Key: "default_target_branch", Default: "main", Value: &c.DefaultTargetBranch, Source: &c.Sources.DefaultTargetBranch},
+		{Key: "ca_file", Env: "BBKT_CA_FILE", Value: &c.CAFile, Source: &c.Sources.CAFile},
+	}
 }
 
 // Sources records which input supplied each field. Five inputs — the file and
@@ -77,52 +100,48 @@ func DefaultTokenPath() string { return filepath.Join(Dir(), "token") }
 // not work yet: refusing to resolve an incomplete one would fail exactly when
 // someone is trying to find out what is incomplete about it.
 func Resolve() (*Config, error) {
-	cfg := &Config{
-		DefaultTargetBranch: "main",
-		Sources: Sources{
-			URL:                 SourceUnset,
-			TokenFile:           SourceUnset,
-			DefaultTargetBranch: SourceDefault,
-			CAFile:              SourceUnset,
-		},
+	cfg := &Config{}
+	settings := cfg.Settings()
+	for _, setting := range settings {
+		*setting.Value = setting.Default
+		*setting.Source = SourceUnset
+		if setting.Default != "" {
+			*setting.Source = SourceDefault
+		}
 	}
 
 	data, err := os.ReadFile(Path())
 	switch {
 	case err == nil:
-		// Decode rather than Unmarshal for the MetaData: a key present in the
-		// file and a key left at its default are indistinguishable in the struct
-		// once decoded, and `default_target_branch = "main"` is exactly that case.
-		meta, err := toml.Decode(string(data), cfg)
+		// Each key is decoded on its own so its presence is known: a key written
+		// in the file and a key left at its default are indistinguishable once
+		// decoded, and `default_target_branch = "main"` is exactly that case.
+		var keys map[string]toml.Primitive
+		meta, err := toml.Decode(string(data), &keys)
 		if err != nil {
 			return nil, fmt.Errorf("parsing %s: %w", Path(), err)
 		}
-		for key, source := range map[string]*string{
-			"url":                   &cfg.Sources.URL,
-			"token_file":            &cfg.Sources.TokenFile,
-			"default_target_branch": &cfg.Sources.DefaultTargetBranch,
-			"ca_file":               &cfg.Sources.CAFile,
-		} {
-			if meta.IsDefined(key) {
-				*source = SourceFile
+		for _, setting := range settings {
+			value, ok := keys[setting.Key]
+			if !ok {
+				continue
 			}
+			if err := meta.PrimitiveDecode(value, setting.Value); err != nil {
+				return nil, fmt.Errorf("parsing %s: %s: %w", Path(), setting.Key, err)
+			}
+			*setting.Source = SourceFile
 		}
 	case !os.IsNotExist(err):
 		return nil, fmt.Errorf("reading %s: %w", Path(), err)
 	}
 
-	for _, override := range []struct {
-		env    string
-		value  *string
-		source *string
-	}{
-		{"BBKT_URL", &cfg.URL, &cfg.Sources.URL},
-		{"BBKT_TOKEN_FILE", &cfg.TokenFile, &cfg.Sources.TokenFile},
-		{"BBKT_CA_FILE", &cfg.CAFile, &cfg.Sources.CAFile},
-	} {
-		if v := os.Getenv(override.env); v != "" {
-			*override.value = v
-			*override.source = "$" + override.env
+	for _, setting := range settings {
+		if setting.Env == "" {
+			continue
+		}
+		if v := os.Getenv(setting.Env); v != "" {
+			*setting.Value = v
+			*setting.Source = "$" + setting.Env
 		}
 	}
 
