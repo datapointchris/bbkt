@@ -22,8 +22,8 @@ var configCmd = goclikit.AsNamespace(&cobra.Command{
 
 bbkt reads one TOML file. A field can be overridden by the environment variable
 "config example" names beside it, so the value a command used is not always the
-one written in the file. "config show" is the only place that reports which input won, and
-"config check" proves the result actually reaches Bitbucket.
+one written in the file. "config show" is the only place that reports which
+input won, and "config check" proves the result actually reaches Bitbucket.
 
 Starting from nothing: run "config init", then "config check".`,
 	Example: `  bbkt config init     write the config and token files, prompting for both
@@ -94,7 +94,8 @@ var configEditCmd = &cobra.Command{
 	Long: `Open the config in your editor, creating a starter one first if none exists.
 
 The editor runs in the foreground, so a terminal editor blocks until you close
-it; a GUI editor returns immediately unless configured to wait (EDITOR="code --wait").`,
+it; a GUI editor returns immediately unless configured to wait
+(EDITOR="code --wait").`,
 	Args: cobra.NoArgs,
 	RunE: runConfigEdit,
 }
@@ -107,8 +108,9 @@ var configCheckCmd = &cobra.Command{
 The only check that means anything here. Nothing about a four-field TOML can be
 validated by reading it — whether the URL is reachable, the CA is the right one,
 and Bitbucket accepts the token are all answered by the round trip and nothing
-else. It names the account the token signs in as. It cannot tell a personal token
-from a project- or repository-scoped one, and only a personal token can merge.
+else. It names the account the token signs in as. It cannot tell a personal
+token from a project- or repository-scoped one, and only a personal token can
+merge.
 
 Exits non-zero on the first step that fails, naming that step.`,
 	Args: cobra.NoArgs,

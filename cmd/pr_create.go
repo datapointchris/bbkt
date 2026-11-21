@@ -49,7 +49,7 @@ var prCreateCmd = &cobra.Command{
 		if source == "" {
 			source, err = bitbucket.CurrentBranch(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("%w; name the branch to merge with --source BRANCH", err)
 			}
 		}
 

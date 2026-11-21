@@ -362,8 +362,9 @@ var (
 var prCommentReplyCmd = &cobra.Command{
 	Use:   "reply [id]",
 	Short: "Reply to a comment thread",
-	Long: "Posts a reply to the comment --to names, which bbkt pr comment list prints beside\n" +
-		"each comment. A reply sits in its thread, so it takes no --path or --line.\n\n" +
+	Long: "Posts a reply to the comment --to names, which bbkt pr comment list prints\n" +
+		"beside each comment. A reply sits in its thread, so it takes no --path or\n" +
+		"--line.\n\n" +
 		"The comment is read before the editor opens, so a wrong --to is refused before\n" +
 		"you write anything, and the editor shows what you are answering.",
 	Example: "  bbkt pr comment reply 42 --to 1001\n" +

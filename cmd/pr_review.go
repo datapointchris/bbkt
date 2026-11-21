@@ -66,7 +66,7 @@ func resolvePullRequestID(ctx context.Context, client *bitbucket.Client, repo bi
 func pullRequestForCurrentBranch(ctx context.Context, client *bitbucket.Client, repo bitbucket.Repo) (*bitbucket.PullRequest, error) {
 	branch, err := bitbucket.CurrentBranch(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w; give the pull request's id, which bbkt pr list prints", err)
 	}
 	// Every open pull request, because the one for this branch could be any of
 	// them and no row count would reliably reach it. That is what an unset

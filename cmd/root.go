@@ -29,10 +29,11 @@ var rootCmd = &cobra.Command{
 instance.
 
 Start with bbkt pr list --reviewing for what waits on your review, or
-bbkt pr list --mine for where your own pull requests stand. Both ask Bitbucket's
-cross-repo views and answer from any directory; a bare bbkt pr list shows only the
-repository you are standing in. A cross-repo row's id belongs to its REPO
-column, so follow it with -R: bbkt pr view 42 -R PROJ/service.
+bbkt pr list --mine for where your own pull requests stand. Both ask
+Bitbucket's cross-repo views and answer from any directory; a bare
+bbkt pr list shows only the repository you are standing in. A cross-repo row's
+id belongs to its REPO column, so follow it with -R:
+bbkt pr view 42 -R PROJ/service.
 
 Commands follow the shape: bbkt pr VERB [ID] — the noun is always "pr", so a
 create → review → merge loop changes only the verb. Review comments sit one
@@ -123,10 +124,17 @@ func newClientFrom(cfg *config.Config, token config.Token) (*bitbucket.Client, e
 	})
 }
 
-// resolveRepo prefers an explicit --repo, falling back to the git remote.
+// resolveRepo prefers an explicit --repo, falling back to the git remote. A
+// remote that is missing or unreadable is answered with the two flags that
+// reach a repository without it.
 func resolveRepo(ctx context.Context) (bitbucket.Repo, error) {
 	if repoSpec != "" {
 		return bitbucket.ParseSpec(repoSpec)
 	}
-	return bitbucket.CurrentRepo(ctx, remoteName)
+	repo, err := bitbucket.CurrentRepo(ctx, remoteName)
+	if err != nil {
+		return bitbucket.Repo{}, fmt.Errorf("%w; run inside a clone, name another remote with --remote, "+
+			"or target a repository with -R PROJECT/SLUG", err)
+	}
+	return repo, nil
 }

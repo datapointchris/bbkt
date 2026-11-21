@@ -42,6 +42,13 @@ var prListCmd = &cobra.Command{
 		if listReviewing && listMine {
 			return goclikit.UsageError(fmt.Errorf("--reviewing and --mine are mutually exclusive"))
 		}
+		// Bitbucket's inbox takes no state, so a --state beside --reviewing
+		// would be dropped without a word and the rows would not be what was
+		// asked for.
+		if listReviewing && cmd.Flags().Changed("state") {
+			return goclikit.UsageError(fmt.Errorf(
+				"--state does not apply to --reviewing; Bitbucket's inbox lists open pull requests only"))
+		}
 		// Both answers to a --limit the command cannot use are given here,
 		// ahead of newClient. A negative is a typing mistake; a zero is a
 		// complete request whose answer is known. Neither owes a token, a git
@@ -89,6 +96,10 @@ var prListCmd = &cobra.Command{
 		}
 
 		if len(prs) == 0 {
+			if listReviewing {
+				infof(cmd, "Nothing waits on your review.")
+				return nil
+			}
 			infof(cmd, "%s", noPullRequests(listState))
 			return nil
 		}
@@ -140,7 +151,7 @@ func noPullRequests(state string) string {
 func init() {
 	prListCmd.Flags().BoolVar(&listJSON, "json", false, "Output pull requests as JSON to stdout")
 	prListCmd.Flags().IntVarP(&listLimit, "limit", "n", 25, "Maximum number of pull requests to show")
-	prListCmd.Flags().StringVarP(&listState, "state", "s", "OPEN", "OPEN, MERGED, DECLINED, or ALL")
+	prListCmd.Flags().StringVarP(&listState, "state", "s", "OPEN", "OPEN, MERGED, DECLINED, or ALL; not with --reviewing, which lists open only")
 	prListCmd.Flags().BoolVar(&listReviewing, "reviewing", false, "pull requests awaiting your review, across every repository")
 	prListCmd.Flags().BoolVar(&listMine, "mine", false, "pull requests you authored, across every repository")
 }
